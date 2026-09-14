@@ -54,10 +54,23 @@
   // ===================== Ánh sáng tổng thể =====================
   // Bản three.js này dùng đơn vị ánh sáng vật lý (useLegacyLights=false, từ r155+),
   // nên cường độ đèn phải lớn hơn nhiều so với thang cũ để không bị tối đen.
-  const anhSangMoi = new THREE.AmbientLight(0x4a3a28, 3.4);
+  // Ambient/Hemisphere giảm bớt để tránh bệt một màu nâu phẳng; thêm đèn
+  // định hướng nhẹ + đổ bóng để tường/sàn/trần có độ tương phản, nhìn ra khối.
+  const anhSangMoi = new THREE.AmbientLight(0x4a3a28, 1.6);
   scene.add(anhSangMoi);
-  const anhSangHatNhan = new THREE.HemisphereLight(0x574430, 0x0c0906, 1.4);
+  const anhSangHatNhan = new THREE.HemisphereLight(0x574430, 0x0c0906, 0.8);
   scene.add(anhSangHatNhan);
+  const anhSangDinhHuong = new THREE.DirectionalLight(0xffe6bd, 1.8);
+  anhSangDinhHuong.position.set(4, 7, 5);
+  anhSangDinhHuong.castShadow = true;
+  anhSangDinhHuong.shadow.mapSize.set(1024, 1024);
+  anhSangDinhHuong.shadow.camera.near = 0.5;
+  anhSangDinhHuong.shadow.camera.far = 30;
+  anhSangDinhHuong.shadow.camera.left = -12;
+  anhSangDinhHuong.shadow.camera.right = 12;
+  anhSangDinhHuong.shadow.camera.top = 12;
+  anhSangDinhHuong.shadow.camera.bottom = -12;
+  scene.add(anhSangDinhHuong);
 
   // ===================== Tiện ích dựng phòng =====================
 
@@ -682,8 +695,16 @@
 
   const bienDoi = new THREE.Object3D(); // vật thể tạm để tính yaw/pitch bằng lookAt
   function layYawPitchNhinVe(tuViTri, denMuc) {
+    // Bản three.js r160 này khiến Object3D.lookAt() hướng trục +Z vào target,
+    // trong khi hướng camera thực sự nhìn tới luôn là trục -Z cục bộ — ngược nhau.
+    // Nếu tính yaw/pitch trực tiếp từ lookAt(denMuc) rồi gán cho camera, camera sẽ
+    // quay lưng 180° vào đúng hướng cần nhìn (đây là nguyên nhân màn hình bị "nâu đặc":
+    // camera nhìn thẳng vào bức tường ngay sau lưng thay vì vào giữa phòng).
+    // Cách sửa: lookAt điểm ĐỐI XỨNG của denMuc qua tuViTri — khi đó trục -Z (hướng
+    // camera thật) mới trỏ đúng về phía denMuc.
+    const diemDoiXung = tuViTri.clone().multiplyScalar(2).sub(denMuc);
     bienDoi.position.copy(tuViTri);
-    bienDoi.lookAt(denMuc);
+    bienDoi.lookAt(diemDoiXung);
     const euler = new THREE.Euler().setFromQuaternion(bienDoi.quaternion, "YXZ");
     return { yaw: euler.y, pitch: euler.x };
   }
