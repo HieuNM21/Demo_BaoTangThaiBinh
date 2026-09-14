@@ -1,3 +1,55 @@
-<!doctype html>
-<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#102d38"><title>Bảo tàng số Thái Bình</title><link rel="stylesheet" href="style.css"></head>
-<body><main id="app" class="app" aria-live="polite"></main><div id="toast" class="toast" role="status"></div><script src="three.min.js"></script><script src="data.js"></script><script src="script.js"></script></body></html>
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>Bảo tàng số Thái Bình</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Màn hình chào — hiện trước khi vào bảo tàng -->
+  <div id="man-hinh-chao">
+    <div class="chao-noi-dung">
+      <p class="chao-nhan">Bảo tàng số</p>
+      <h1>Di sản Thái Bình</h1>
+      <p class="chao-mo-ta">Một hành trình bước vào không gian trưng bày ba chiều, tìm hiểu di sản văn hoá và làng nghề của vùng đất Thái Bình.</p>
+      <button id="nut-bat-dau">Bước vào bảo tàng</button>
+      <p class="chao-huong-dan">Chuột: kéo để xoay góc nhìn · Bàn phím: Tab chọn hiện vật, Enter tiến lại gần, Esc lùi ra</p>
+    </div>
+  </div>
+
+  <!-- Canvas dựng cảnh 3D -->
+  <canvas id="canvas-3d"></canvas>
+
+  <!-- Thanh tiêu đề trên cùng -->
+  <div id="thanh-tieu-de">
+    <span id="ten-khu-vuc-hien-tai">Tiền sảnh</span>
+    <button id="nut-ve-sanh" hidden>← Về sảnh</button>
+  </div>
+
+  <!-- Bảng chú thích điều khiển (góc dưới) -->
+  <div id="goi-y-dieu-khien">Kéo chuột để nhìn quanh · Click vào hiện vật để xem chi tiết</div>
+
+  <!-- Panel chi tiết hiện vật — DOM/CSS bình thường -->
+  <aside id="panel-chi-tiet" hidden>
+    <button id="nut-dong-panel" aria-label="Đóng">✕</button>
+    <p class="panel-nhan" id="panel-nhom"></p>
+    <h2 id="panel-ten"></h2>
+    <p id="panel-mo-ta-ngan"></p>
+    <div class="panel-phan">
+      <h3>Câu chuyện</h3>
+      <p id="panel-cau-chuyen"></p>
+    </div>
+    <div class="panel-phan panel-ban-co-biet">
+      <h3>Bạn có biết?</h3>
+      <p id="panel-ban-co-biet"></p>
+    </div>
+    <button id="nut-lui-ra">Lùi ra</button>
+  </aside>
+
+  <!-- Thư viện Three.js tải cục bộ, chạy offline -->
+  <script src="three.min.js"></script>
+  <script src="data.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
