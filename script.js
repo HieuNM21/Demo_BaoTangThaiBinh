@@ -1,55 +1,32 @@
-/* Bảo tàng số: data.js chứa nội dung, file này chỉ đọc dữ liệu và dựng giao diện. */
-const app = document.querySelector('#app');
-const toast = document.querySelector('#toast');
-let currentRoom = null, selected = null, drag = null;
-
-const iconFor = group => ({ 'tin-nguong': '⌂', 'nghe-thuat': '♫', 'lang-nghe': '✦', 'am-thuc': '❋' })[group] || '✦';
-const artifact3D = (item, large = false) => `<div class="object ${large ? 'object--large' : ''}" style="--artifact:${item.mauSac}">
-  <div class="object-spin"><div class="object-shape">${item.imageUrl ? `<img src="${item.imageUrl}" alt="${item.ten}">` : `<span aria-hidden="true">${iconFor(item.nhom)}</span>`}</div></div></div>`;
-
-function showToast(message) {
-  toast.textContent = message; toast.classList.add('toast--show');
-  clearTimeout(showToast.timer); showToast.timer = setTimeout(() => toast.classList.remove('toast--show'), 2800);
-}
-
-// Dựng sảnh từ GIAN, do đó chỉ đổi dữ liệu khi bổ sung gian mới.
-function renderLobby() {
-  currentRoom = null; selected = null;
-  app.innerHTML = `<section class="lobby"><div class="intro"><p class="project">Dự án Khoa học Kỹ thuật</p><h1>Bảo tàng số<br><em>đồng bằng</em></h1><p>Chạm vào những lớp ký ức của Thái Bình, nơi di sản vẫn ngân lên trong nhịp sống hôm nay.</p></div>
-    <div class="gates">${GIAN.map(room => `<button class="gate ${room.trangThai === 'khoa' ? 'gate--locked' : ''}" data-room="${room.ma}" ${room.trangThai === 'khoa' ? 'aria-describedby="locked-note"' : ''}><span class="gate__arch">${room.trangThai === 'khoa' ? '⌁' : '✦'}</span><strong>${room.ten}</strong><small>${room.trangThai === 'khoa' ? 'Đang chuẩn bị' : 'Bước vào trưng bày'}</small></button>`).join('')}</div><p id="locked-note" class="source-note">Nội dung demo cần được đối chiếu, trích dẫn nguồn trước khi dự thi.</p></section>`;
-  app.querySelectorAll('[data-room]').forEach(button => button.addEventListener('click', () => {
-    const room = GIAN.find(r => r.ma === button.dataset.room);
-    room.trangThai === 'mo' ? renderRoom(room.ma) : showToast('Gian trưng bày đang được chuẩn bị, quay lại sau nhé.');
-  }));
-}
-
-function renderRoom(roomId) {
-  currentRoom = roomId;
-  const room = GIAN.find(r => r.ma === roomId);
-  const sections = NHOM.map(group => {
-    const items = ARTIFACTS.filter(item => item.gian === roomId && item.nhom === group.ma);
-    if (!items.length) return '';
-    return `<section class="collection"><h2>${group.ten}</h2><div class="pedestal-grid">${items.map(item => `<button class="pedestal ${item.trangThai === 'khoa' ? 'is-locked' : ''}" data-artifact="${item.id}" ${item.trangThai === 'khoa' ? 'disabled' : ''} aria-label="Xem ${item.ten}"><span class="pedestal__scene">${artifact3D(item)}</span><span class="pedestal__base"></span><strong>${item.ten}</strong></button>`).join('')}</div></section>`;
-  }).join('');
-  app.innerHTML = `<section class="gallery"><header class="gallery__header"><button class="back" id="back-lobby">← Quay lại sảnh</button><div><p class="project">Bộ sưu tập</p><h1>${room.ten}</h1></div><p class="count">${ARTIFACTS.filter(a => a.gian === roomId).length} hiện vật</p></header>${sections}</section>`;
-  document.querySelector('#back-lobby').addEventListener('click', renderLobby);
-  app.querySelectorAll('[data-artifact]').forEach(button => button.addEventListener('click', () => openDetail(button.dataset.artifact)));
-}
-
-function openDetail(id) {
-  selected = ARTIFACTS.find(item => item.id === id);
-  let rx = -8, ry = -18;
-  app.insertAdjacentHTML('beforeend', `<section class="detail" role="dialog" aria-modal="true" aria-label="${selected.ten}"><button class="close" aria-label="Đóng chi tiết">×</button><div class="detail__viewer" id="viewer">${artifact3D(selected, true)}</div><article class="detail__info"><p class="project">${NHOM.find(g => g.ma === selected.nhom).ten}</p><h2>${selected.ten}</h2><p class="lead">${selected.moTaNgan}</p><details open><summary>Câu chuyện hiện vật</summary><p>${selected.cauChuyen}</p></details><aside><span>Bạn có biết?</span><p>${selected.banCoBiet}</p></aside></article></section>`);
-  const detail = app.querySelector('.detail'), viewer = document.querySelector('#viewer'), object = viewer.querySelector('.object');
-  const setRotation = () => object.style.transform = `rotateX(${rx}deg) rotateY(${ry}deg)`;
-  setRotation();
-  const finish = () => { detail.remove(); selected = null; };
-  detail.querySelector('.close').addEventListener('click', finish); detail.querySelector('.close').focus();
-  // Kéo chuột hoặc chạm để xoay hiện vật; góc X giới hạn để luôn dễ nhìn.
-  viewer.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY }; viewer.setPointerCapture(e.pointerId); });
-  viewer.addEventListener('pointermove', e => { if (!drag) return; ry += (e.clientX - drag.x) * .55; rx = Math.max(-55, Math.min(45, rx - (e.clientY - drag.y) * .35)); drag = { x: e.clientX, y: e.clientY }; setRotation(); });
-  viewer.addEventListener('pointerup', () => drag = null); viewer.addEventListener('pointercancel', () => drag = null);
-}
-
-document.addEventListener('keydown', event => { if (event.key === 'Escape' && selected) document.querySelector('.detail .close')?.click(); });
-renderLobby();
+/* Cảnh WebGL đọc hoàn toàn từ ARTIFACTS, NHOM và GIAN trong data.js. */
+const app=document.querySelector('#app'),toast=document.querySelector('#toast'),reduced=matchMedia('(prefers-reduced-motion:reduce)').matches;
+let museum;
+// Trạng thái của gian là công tắc chính: mở gian Hưng Yên là các bệ tự hoạt động.
+const roomOf=a=>GIAN.find(r=>r.ma===a.gian),canView=a=>roomOf(a)?.trangThai==='mo';
+function notice(s){toast.textContent=s;toast.classList.add('toast--show');clearTimeout(notice.t);notice.t=setTimeout(()=>toast.classList.remove('toast--show'),2800)}
+function stop(){museum?.destroy();museum=null}
+function lobby(){stop();app.innerHTML=`<section class="lobby"><div class="intro"><p class="project">Dự án Khoa học Kỹ thuật</p><h1>Bảo tàng số<br><em>đồng bằng</em></h1><p>Chạm vào những lớp ký ức của Thái Bình, nơi di sản vẫn ngân lên trong nhịp sống hôm nay.</p></div><div class="gates">${GIAN.map(r=>`<button class="gate ${r.trangThai==='khoa'?'gate--locked':''}" data-room="${r.ma}"><span class="gate__arch">${r.trangThai==='khoa'?'⌁':'✦'}</span><strong>${r.ten}</strong><small>${r.trangThai==='khoa'?'Đang chuẩn bị':'Bước vào trưng bày'}</small></button>`).join('')}</div><p class="source-note">Nội dung demo cần được đối chiếu, trích dẫn nguồn trước khi dự thi.</p></section>`;app.querySelectorAll('[data-room]').forEach(b=>b.onclick=()=>{const r=GIAN.find(x=>x.ma===b.dataset.room);r.trangThai==='mo'?room(r.ma):notice('Gian trưng bày đang được chuẩn bị, quay lại sau nhé.')})}
+function room(id){stop();const r=GIAN.find(x=>x.ma===id);app.innerHTML=`<section class="museum"><header class="museum__bar"><button class="back" id="back">← Quay lại sảnh</button><div><p class="project">Không gian WebGL</p><h1>${r.ten}</h1></div><button class="overview" id="overview">Xem toàn cảnh</button></header><div id="webgl" class="webgl" tabindex="0" aria-label="Cảnh trưng bày 3D. Kéo để đổi góc nhìn, lăn để phóng to."></div><p class="scene-hint">Kéo để quan sát không gian · Lăn để phóng to · Chạm hiện vật để khám phá</p><div class="scene__a11y-wrap" aria-label="Danh sách hiện vật">${ARTIFACTS.map(a=>`<button class="scene__a11y" data-art="${a.id}" ${canView(a)?'':'disabled'}>${a.ten}${canView(a)?'':' — Sắp mở'}</button>`).join('')}</div><aside class="info-panel" id="info"></aside></section>`;document.querySelector('#back').onclick=lobby;museum=scene(document.querySelector('#webgl'));document.querySelector('#overview').onclick=museum.overview;app.querySelectorAll('[data-art]').forEach(b=>b.onclick=()=>museum.select(b.dataset.art))}
+function sprite(text,color){const c=document.createElement('canvas');c.width=512;c.height=96;const x=c.getContext('2d');x.font='bold 36px system-ui';x.textAlign='center';x.fillStyle='rgba(5,24,30,.72)';x.fillRect(18,12,476,72);x.fillStyle=color;x.fillText(text,256,59);const s=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),transparent:true}));s.scale.set(3.8,.72,1);return s}
+// Primitive 3D theo nhóm thay cho ảnh hoặc CSS transform.
+function model(a,locked){const g=new THREE.Group(),m=new THREE.MeshStandardMaterial({color:locked?'#617277':a.mauSac,metalness:a.nhom==='lang-nghe'?.72:.25,roughness:.34}),q=new THREE.MeshStandardMaterial({color:locked?'#849197':'#f1d788',metalness:.65,roughness:.22}),add=(z,y,k=1,mat=m)=>{const n=new THREE.Mesh(z,mat);n.position.y=y;n.scale.setScalar(k);n.castShadow=n.receiveShadow=true;g.add(n)};
+if(a.nhom==='tin-nguong'){add(new THREE.CylinderGeometry(.8,1.02,1.9,6),1);add(new THREE.ConeGeometry(1.25,.75,6),2.3,1,q);add(new THREE.CylinderGeometry(.13,.13,.9,8),3,1,q)}
+if(a.nhom==='nghe-thuat'){add(new THREE.CylinderGeometry(.95,.95,1.35,32),1.1);add(new THREE.TorusGeometry(.82,.11,12,32),1.12,1,q);add(new THREE.SphereGeometry(.24,16,12),2.02,1,q)}
+if(a.nhom==='lang-nghe'){add(new THREE.CylinderGeometry(.68,.94,1.65,10),.95);add(new THREE.TorusGeometry(.62,.1,10,24),1.63,1,q);add(new THREE.ConeGeometry(.42,.85,10),2.18,1,q)}
+if(a.nhom==='am-thuc'){add(new THREE.SphereGeometry(1,24,18),1.05);add(new THREE.TorusGeometry(.72,.1,10,28),1.05,1,q);add(new THREE.ConeGeometry(.18,.8,8),2.05,1,q)}
+if(a.imageUrl)new THREE.TextureLoader().load(a.imageUrl,t=>{m.map=t;m.needsUpdate=true});g.userData={a};return g}
+function scene(host){const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;host.append(renderer.domElement);
+const s=new THREE.Scene();s.background=new THREE.Color('#0b2d35');s.fog=new THREE.Fog('#0b2d35',17,40);const camera=new THREE.PerspectiveCamera(48,1,.1,100),target=new THREE.Vector3(0,.8,0);s.add(new THREE.HemisphereLight('#b7edf0','#10262b',1.4));const sun=new THREE.DirectionalLight('#ffe4a2',3.2);sun.position.set(7,13,8);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);sun.shadow.camera.left=sun.shadow.camera.bottom=-14;sun.shadow.camera.right=sun.shadow.camera.top=14;s.add(sun);
+const floor=new THREE.Mesh(new THREE.CircleGeometry(17,64),new THREE.MeshStandardMaterial({color:'#133e43',roughness:.92}));floor.rotation.x=-Math.PI/2;floor.receiveShadow=true;s.add(floor);const hub=new THREE.Mesh(new THREE.CylinderGeometry(2.8,3.2,.32,48),new THREE.MeshStandardMaterial({color:'#1a5053',metalness:.35,roughness:.35}));hub.position.y=.16;hub.receiveShadow=true;s.add(hub);
+const picks=[],items=[];ARTIFACTS.forEach((a,i)=>{const locked=!canView(a),angle=i/ARTIFACTS.length*Math.PI*2+.18,dist=a.gian==='thaibinh'?7:11,stand=new THREE.Group();stand.position.set(Math.cos(angle)*dist,0,Math.sin(angle)*dist);stand.rotation.y=-angle+Math.PI/2;s.add(stand);const base=new THREE.Mesh(new THREE.CylinderGeometry(1.45,1.7,.82,32),new THREE.MeshStandardMaterial({color:locked?'#4d6268':'#d4cba7',roughness:.52,metalness:.16}));base.position.y=.41;base.castShadow=base.receiveShadow=true;stand.add(base);const ring=new THREE.Mesh(new THREE.TorusGeometry(1.15,.045,8,36),new THREE.MeshBasicMaterial({color:locked?'#6e7d80':a.mauSac,transparent:true,opacity:.9}));ring.rotation.x=Math.PI/2;ring.position.y=.86;stand.add(ring);const art=model(a,locked);art.position.y=.84;stand.add(art);const hit=new THREE.Mesh(new THREE.CylinderGeometry(1.35,1.35,4.1,20),new THREE.MeshBasicMaterial({transparent:true,opacity:0}));hit.position.y=2.3;hit.userData={a,locked};stand.add(hit);picks.push(hit);const label=sprite(locked?`${a.ten} · Sắp mở`:a.ten,locked?'#b8c1c2':'#f7e8ae');label.position.y=4.35;stand.add(label);items.push({a,art,ring})});
+let theta=.72,phi=1.12,radius=23,selected=null,fly=null,drag=null,pinch=0,frame;const home={theta:.72,phi:1.12,radius:23,target:new THREE.Vector3(0,.8,0)};
+const setCamera=()=>{const k=Math.sin(phi);camera.position.set(target.x+radius*k*Math.sin(theta),target.y+radius*Math.cos(phi),target.z+radius*k*Math.cos(theta));camera.lookAt(target)};
+const flyTo=end=>{end={...end,target:end.target.clone()};if(reduced){({theta,phi,radius}=end);target.copy(end.target);return}fly={t:performance.now(),from:{theta,phi,radius,target:target.clone()},end}};
+const overview=()=>{selected=null;document.querySelector('#info').innerHTML='';flyTo(home)};
+const info=a=>{const n=NHOM.find(x=>x.ma===a.nhom);document.querySelector('#info').innerHTML=`<button class="info-panel__close" aria-label="Đóng chi tiết">×</button><p class="project">${n.ten}</p><h2>${a.ten}</h2><p class="lead">${a.moTaNgan}</p><details open><summary>Câu chuyện hiện vật</summary><p>${a.cauChuyen}</p></details><aside><span>Bạn có biết?</span><p>${a.banCoBiet}</p></aside>`;document.querySelector('.info-panel__close').onclick=overview};
+const select=id=>{const x=items.find(z=>z.a.id===id);if(!x||!canView(x.a))return notice('Hiện vật này đang trong gian chuẩn bị.');selected=id;info(x.a);flyTo({theta:theta+.35,phi:1.08,radius:6.4,target:x.art.parent.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0,1.65,0))})};
+const ray=new THREE.Raycaster(),mouse=new THREE.Vector2(),pick=e=>{const r=renderer.domElement.getBoundingClientRect();mouse.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);ray.setFromCamera(mouse,camera);const h=ray.intersectObjects(picks)[0];if(h)select(h.object.userData.a.id)};
+const onKey=e=>{if(e.key==='Escape'&&selected)overview()};document.addEventListener('keydown',onKey);
+renderer.domElement.addEventListener('pointerdown',e=>{renderer.domElement.setPointerCapture(e.pointerId);drag={x:e.clientX,y:e.clientY,m:false}});renderer.domElement.addEventListener('pointermove',e=>{if(!drag)return;const x=e.clientX-drag.x,y=e.clientY-drag.y;if(Math.abs(x)+Math.abs(y)>4)drag.m=true;theta-=x*.008;phi=THREE.MathUtils.clamp(phi+y*.008,.28,Math.PI-.28);drag.x=e.clientX;drag.y=e.clientY;fly=null});renderer.domElement.addEventListener('pointerup',e=>{if(drag&&!drag.m)pick(e);drag=null});renderer.domElement.addEventListener('wheel',e=>{e.preventDefault();radius=THREE.MathUtils.clamp(radius+e.deltaY*.012,4.5,30);fly=null},{passive:false});renderer.domElement.addEventListener('touchstart',e=>{if(e.touches.length===2)pinch=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY)},{passive:true});renderer.domElement.addEventListener('touchmove',e=>{if(e.touches.length===2){const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);radius=THREE.MathUtils.clamp(radius-(d-pinch)*.025,4.5,30);pinch=d}},{passive:true});
+const resize=()=>{const {clientWidth:w,clientHeight:h}=host;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix()},tick=t=>{frame=requestAnimationFrame(tick);if(fly){const p=Math.min(1,(t-fly.t)/1100),e=p<.5?4*p**3:1-(-2*p+2)**3/2;theta=THREE.MathUtils.lerp(fly.from.theta,fly.end.theta,e);phi=THREE.MathUtils.lerp(fly.from.phi,fly.end.phi,e);radius=THREE.MathUtils.lerp(fly.from.radius,fly.end.radius,e);target.lerpVectors(fly.from.target,fly.end.target,e);if(p===1)fly=null}if(!reduced)items.forEach(({a,art,ring},i)=>{if(a.id!==selected)art.rotation.y+=.007;art.position.y=.84+Math.sin(t*.0012+i)*.09;ring.material.opacity=.55+Math.sin(t*.002+i)*.25});setCamera();renderer.render(s,camera)};resize();addEventListener('resize',resize);frame=requestAnimationFrame(tick);return{select,overview,destroy:()=>{cancelAnimationFrame(frame);removeEventListener('resize',resize);document.removeEventListener('keydown',onKey);renderer.dispose();host.replaceChildren()}}}
+lobby();
