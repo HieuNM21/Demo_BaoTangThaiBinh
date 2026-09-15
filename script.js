@@ -45,7 +45,16 @@
     targetPitch: 0,
     orbitRadius: 2.2,
     orbitTarget: new THREE.Vector3(0, 1.4, 0),
-    isOrbiting: false
+    isOrbiting: false,
+    // Giới hạn phóng to/thu nhỏ khi đang cận cảnh một hiện vật. minOrbitRadius
+    // đặt đủ gần (0.32) để nhìn rõ các chi tiết chạm khắc nhỏ (đinh tán, hạt
+    // vừng, lông mày...) — nếu không có cách phóng to này, các chi tiết dựng
+    // rất kỹ trong createUniqueArtifactGeometry() không bao giờ được nhìn thấy
+    // rõ, vì khoảng cách mặc định lúc bay tới (~2.1) quá xa để thấy chi tiết
+    // ở tỉ lệ nhỏ như vậy.
+    minOrbitRadius: 0.32,
+    maxOrbitRadius: 2.4,
+    prevPinchDist: null
   };
 
   const cameraTween = {
@@ -125,6 +134,9 @@
     buildLobby();
     scene.add(lobbyGroup);
     APP_STATE.currentView = 'lobby';
+
+    // Pre-build gian Thái Bình trước ngay từ đầu để khi bước qua cổng là tức thì, 0ms lag
+    buildThaiBinhRoom();
 
     // 5. Render UI dữ liệu
     renderCategoryTabs();
@@ -1898,8 +1910,12 @@
     if (APP_STATE.currentView === 'transition') return;
     APP_STATE.currentView = 'transition';
 
-    buildThaiBinhRoom();
-    scene.add(thaiBinhRoomGroup);
+    if (!thaiBinhRoomGroup) {
+      buildThaiBinhRoom();
+    }
+    if (!scene.children.includes(thaiBinhRoomGroup)) {
+      scene.add(thaiBinhRoomGroup);
+    }
 
     const entranceTarget = new THREE.Vector3(0, 1.7, 8.5);
     const entranceLookAt = new THREE.Vector3(0, 1.5, 0);
@@ -1907,7 +1923,7 @@
     animateCamera({
       targetPos: entranceTarget,
       targetLookAt: entranceLookAt,
-      duration: APP_STATE.reducedMotion ? 50 : 1600,
+      duration: APP_STATE.reducedMotion ? 50 : 1200,
       onComplete: () => {
         if (lobbyGroup) {
           scene.remove(lobbyGroup);
@@ -1927,7 +1943,7 @@
 
     closeDrawer();
 
-    if (lobbyGroup) {
+    if (lobbyGroup && !scene.children.includes(lobbyGroup)) {
       scene.add(lobbyGroup);
     }
 
@@ -1937,7 +1953,7 @@
     animateCamera({
       targetPos: lobbyTarget,
       targetLookAt: lobbyLookAt,
-      duration: APP_STATE.reducedMotion ? 50 : 1400,
+      duration: APP_STATE.reducedMotion ? 50 : 1200,
       onComplete: () => {
         if (thaiBinhRoomGroup) {
           scene.remove(thaiBinhRoomGroup);
@@ -1967,7 +1983,7 @@
       animateCamera({
         targetPos: new THREE.Vector3(0, 1.7, 8.5),
         targetLookAt: new THREE.Vector3(0, 1.5, 0),
-        duration: 1000,
+        duration: 900,
         onComplete: () => {
           updateUI();
         }
@@ -1975,6 +1991,7 @@
     }
   }
 
+  // Cố định vị trí đứng: luôn đứng ở PHÍA TRƯỚC mặt chính diện (+Z) của hiện vật
   function focusArtifact(artifactId) {
     const artifact = ARTIFACTS.find(a => a.id === artifactId);
     if (!artifact) return;
@@ -1983,7 +2000,7 @@
       enterThaiBinhRoom();
       setTimeout(() => {
         focusArtifact(artifactId);
-      }, APP_STATE.reducedMotion ? 100 : 1700);
+      }, APP_STATE.reducedMotion ? 100 : 1300);
       return;
     }
 
@@ -1991,27 +2008,29 @@
     APP_STATE.currentView = 'artifact_focus';
 
     const { x, z } = artifact.toaDoKhongGian;
-    const plinthCenter = new THREE.Vector3(x, 1.45, z);
+    const plinthCenter = new THREE.Vector3(x, 1.40, z);
 
-    const standOffsetX = (x < 0) ? 1.6 : -1.6;
-    const standOffsetZ = (z < 0) ? 1.4 : -1.4;
+    // Tất cả hiện vật đều quay mặt về hướng Nam (+Z) hướng ra lối đi chính
+    // Do đó camera LUÔN LUÔN đứng ở phía trước (+Z) nhìn thẳng vào mặt chính diện
+    const standOffsetX = (x < 0) ? 0.40 : -0.40; // hơi nghiêng góc 3/4 nhẹ
+    const standOffsetZ = 1.85; // LUÔN LUÔN đứng phía trước (+Z)
 
-    const targetPos = new THREE.Vector3(x + standOffsetX, 1.6, z + standOffsetZ);
+    const targetPos = new THREE.Vector3(x + standOffsetX, 1.55, z + standOffsetZ);
 
     cameraControl.orbitTarget.copy(plinthCenter);
     cameraControl.orbitRadius = targetPos.distanceTo(plinthCenter);
     cameraControl.yaw = Math.atan2(targetPos.x - plinthCenter.x, targetPos.z - plinthCenter.z);
-    cameraControl.pitch = 0.15;
+    cameraControl.pitch = 0.12;
     cameraControl.isOrbiting = true;
 
     animateCamera({
       targetPos: targetPos,
       targetLookAt: plinthCenter,
-      duration: APP_STATE.reducedMotion ? 50 : 1100,
+      duration: APP_STATE.reducedMotion ? 50 : 1000,
       onComplete: () => {
         openDrawer(artifact);
         updateUI();
-        showHintTemporarily('CẬN CẢNH', 'Kéo chuột để xoay ngắm chi tiết 3D hiện vật', 3000);
+        showHintTemporarily('CẬN CẢNH', 'Kéo chuột để xoay · Lăn chuột (chụm 2 ngón) để phóng to xem chi tiết', 3600);
       }
     });
   }
@@ -2038,6 +2057,11 @@
   // ==========================================================================
   // XỬ LÝ SỰ KIỆN TƯƠNG TÁC
   // ==========================================================================
+  // Biến theo dõi quãng đường di chuyển chuột để phân biệt giữa Click và Drag xoay
+  let pointerStartX = 0;
+  let pointerStartY = 0;
+  let isPointerMoved = false;
+
   function setupEventListeners() {
     window.addEventListener('resize', onWindowResize, false);
 
@@ -2049,6 +2073,9 @@
     dom.container.addEventListener('touchstart', onTouchStart, { passive: false });
     window.addEventListener('touchmove', onTouchMove, { passive: false });
     window.addEventListener('touchend', onTouchEnd, false);
+
+    // Lăn chuột để phóng to/thu nhỏ khi đang cận cảnh một hiện vật
+    dom.container.addEventListener('wheel', onWheelZoom, { passive: false });
 
     // Click chọn vật thể
     dom.container.addEventListener('click', onCanvasClick, false);
@@ -2079,6 +2106,33 @@
     window.addEventListener('keydown', onKeyDown, false);
   }
 
+  function applyOrbitCamera() {
+    const r = cameraControl.orbitRadius;
+    const target = cameraControl.orbitTarget;
+    camera.position.x = target.x + r * Math.sin(cameraControl.yaw) * Math.cos(cameraControl.pitch);
+    camera.position.y = target.y + r * Math.sin(cameraControl.pitch) + 0.15;
+    camera.position.z = target.z + r * Math.cos(cameraControl.yaw) * Math.cos(cameraControl.pitch);
+    cameraTween.currentLookAt.copy(target);
+    camera.lookAt(target);
+  }
+
+  function onWheelZoom(e) {
+    if (!cameraControl.isOrbiting || cameraTween.active) return;
+    e.preventDefault();
+    const zoomSensitivity = 0.0016;
+    cameraControl.orbitRadius = Math.max(
+      cameraControl.minOrbitRadius,
+      Math.min(cameraControl.maxOrbitRadius, cameraControl.orbitRadius + e.deltaY * zoomSensitivity)
+    );
+    applyOrbitCamera();
+  }
+
+  function getPinchDistance(touches) {
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.hypot(dx, dy);
+  }
+
   function onWindowResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
@@ -2090,8 +2144,10 @@
     cameraControl.isDragging = true;
     cameraControl.prevMouseX = e.clientX;
     cameraControl.prevMouseY = e.clientY;
+    pointerStartX = e.clientX;
+    pointerStartY = e.clientY;
+    isPointerMoved = false;
 
-    // Tự động làm mờ Hint khi người dùng bắt đầu thao tác
     scheduleHintFade(1500);
   }
 
@@ -2100,6 +2156,11 @@
     mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
 
     if (cameraControl.isDragging && !cameraTween.active) {
+      const moveDist = Math.hypot(e.clientX - pointerStartX, e.clientY - pointerStartY);
+      if (moveDist > 5) {
+        isPointerMoved = true;
+      }
+
       const deltaX = e.clientX - cameraControl.prevMouseX;
       const deltaY = e.clientY - cameraControl.prevMouseY;
       cameraControl.prevMouseX = e.clientX;
@@ -2109,15 +2170,8 @@
 
       if (cameraControl.isOrbiting) {
         cameraControl.yaw -= deltaX * sensitivity;
-        cameraControl.pitch = Math.max(-0.2, Math.min(0.65, cameraControl.pitch + deltaY * sensitivity));
-
-        const r = cameraControl.orbitRadius;
-        const target = cameraControl.orbitTarget;
-        camera.position.x = target.x + r * Math.sin(cameraControl.yaw) * Math.cos(cameraControl.pitch);
-        camera.position.y = target.y + r * Math.sin(cameraControl.pitch) + 0.15;
-        camera.position.z = target.z + r * Math.cos(cameraControl.yaw) * Math.cos(cameraControl.pitch);
-        cameraTween.currentLookAt.copy(target);
-        camera.lookAt(target);
+        cameraControl.pitch = Math.max(-0.25, Math.min(0.65, cameraControl.pitch + deltaY * sensitivity));
+        applyOrbitCamera();
       } else {
         cameraControl.yaw -= deltaX * sensitivity;
         cameraControl.pitch = Math.max(-0.45, Math.min(0.45, cameraControl.pitch - deltaY * sensitivity));
@@ -2142,25 +2196,54 @@
       cameraControl.isDragging = true;
       cameraControl.prevMouseX = e.touches[0].clientX;
       cameraControl.prevMouseY = e.touches[0].clientY;
+      pointerStartX = e.touches[0].clientX;
+      pointerStartY = e.touches[0].clientY;
+      isPointerMoved = false;
       scheduleHintFade(1500);
+    } else if (e.touches.length === 2) {
+      cameraControl.isDragging = false;
+      cameraControl.prevPinchDist = getPinchDistance(e.touches);
     }
   }
 
   function onTouchMove(e) {
     if (e.touches.length === 1 && cameraControl.isDragging) {
+      const moveDist = Math.hypot(e.touches[0].clientX - pointerStartX, e.touches[0].clientY - pointerStartY);
+      if (moveDist > 5) {
+        isPointerMoved = true;
+      }
       onPointerMove({
         clientX: e.touches[0].clientX,
         clientY: e.touches[0].clientY
       });
+    } else if (e.touches.length === 2 && cameraControl.isOrbiting && !cameraTween.active) {
+      e.preventDefault();
+      const dist = getPinchDistance(e.touches);
+      if (cameraControl.prevPinchDist != null) {
+        const delta = dist - cameraControl.prevPinchDist;
+        const zoomSensitivity = 0.006;
+        cameraControl.orbitRadius = Math.max(
+          cameraControl.minOrbitRadius,
+          Math.min(cameraControl.maxOrbitRadius, cameraControl.orbitRadius - delta * zoomSensitivity)
+        );
+        applyOrbitCamera();
+      }
+      cameraControl.prevPinchDist = dist;
     }
   }
 
-  function onTouchEnd() {
+  function onTouchEnd(e) {
     cameraControl.isDragging = false;
+    if (e.touches.length < 2) cameraControl.prevPinchDist = null;
   }
 
   function onCanvasClick(e) {
     if (cameraTween.active) return;
+    // Bỏ qua click nếu người dùng vừa kéo chuột/cảm ứng để xoay góc nhìn
+    if (isPointerMoved) return;
+
+    // Nếu đang trong chế độ cận cảnh hiện vật, không cho raycast nhảy lung tung sang hiện vật khác trong phòng
+    if (APP_STATE.currentView === 'artifact_focus') return;
 
     mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
     mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
@@ -2318,7 +2401,7 @@
       dom.btnBackLobby.classList.remove('hidden');
       dom.bottomDock.style.display = 'flex';
       if (dom.hintTag) dom.hintTag.innerText = 'HƯỚNG DẪN';
-      if (dom.hintText) dom.hintText.innerText = 'Kéo chuột để quan sát • Click hiện vật để xem chi tiết • Esc để lùi';
+      if (dom.hintText) dom.hintText.innerText = 'Kéo chuột để quan sát • Click hiện vật để xem chi tiết • Lăn chuột để phóng to • Esc để lùi';
     }
 
     renderArtifactChips();
