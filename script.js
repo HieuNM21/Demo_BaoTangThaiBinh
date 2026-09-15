@@ -135,8 +135,12 @@
     scene.add(lobbyGroup);
     APP_STATE.currentView = 'lobby';
 
-    // Pre-build gian Thái Bình trước ngay từ đầu để khi bước qua cổng là tức thì, 0ms lag
+    // Pre-build và GPU Pre-warming gian Thái Bình ngay từ đầu:
+    // Upload trước toàn bộ shader, texture, buffer lên GPU (không render khung hình đè lên canvas)
     buildThaiBinhRoom();
+    scene.add(thaiBinhRoomGroup);
+    renderer.compile(scene, camera);
+    scene.remove(thaiBinhRoomGroup);
 
     // 5. Render UI dữ liệu
     renderCategoryTabs();
@@ -404,19 +408,19 @@
     // Chữ
     ctx.textAlign = 'center';
     ctx.fillStyle = '#e2be72';
-    ctx.font = 'bold 42px "Playfair Display", serif, "Times New Roman"';
+    ctx.font = 'bold 42px "Playfair Display", "Georgia", "Times New Roman", serif';
     ctx.fillText('BẢO TÀNG SỐ DI SẢN VĂN HÓA', 512, 120);
 
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 56px "Playfair Display", serif, "Times New Roman"';
+    ctx.font = 'bold 54px "Playfair Display", "Georgia", "Times New Roman", serif';
     ctx.fillText('THÁI BÌNH — HƯNG YÊN', 512, 200);
 
     ctx.fillStyle = '#c2b7a7';
-    ctx.font = '30px "Be Vietnam Pro", sans-serif';
+    ctx.font = '500 28px "Be Vietnam Pro", "Segoe UI", sans-serif';
     ctx.fillText('Không gian trải nghiệm 3D di sản lịch sử & làng nghề truyền thống', 512, 280);
 
     ctx.fillStyle = '#e69d45';
-    ctx.font = 'bold 32px "Be Vietnam Pro", sans-serif';
+    ctx.font = 'bold 30px "Be Vietnam Pro", "Segoe UI", sans-serif';
     ctx.fillText('👉 Hãy chọn Cổng vòm Gian Thái Bình phía trước để tham quan', 512, 380);
 
     const texture = new THREE.CanvasTexture(canvas);
@@ -478,15 +482,15 @@
 
       ctx.textAlign = 'center';
       ctx.fillStyle = '#e2be72';
-      ctx.font = 'bold 44px "Playfair Display", serif';
+      ctx.font = 'bold 44px "Playfair Display", "Georgia", "Times New Roman", serif';
       ctx.fillText(title, 256, 260);
 
       ctx.fillStyle = '#ffffff';
-      ctx.font = '28px "Be Vietnam Pro", sans-serif';
+      ctx.font = '500 28px "Be Vietnam Pro", "Segoe UI", sans-serif';
       ctx.fillText('8 Hiện vật Di sản', 256, 340);
 
       ctx.fillStyle = '#d4af5f';
-      ctx.font = 'bold 32px "Be Vietnam Pro", sans-serif';
+      ctx.font = 'bold 30px "Be Vietnam Pro", "Segoe UI", sans-serif';
       ctx.fillText('🚪 CLICK ĐỂ VÀO', 256, 460);
 
       const texture = new THREE.CanvasTexture(canvas);
@@ -510,14 +514,14 @@
 
       ctx.textAlign = 'center';
       ctx.fillStyle = '#9e8d7d';
-      ctx.font = 'bold 40px "Playfair Display", serif';
+      ctx.font = 'bold 40px "Playfair Display", "Georgia", "Times New Roman", serif';
       ctx.fillText(title, 256, 260);
 
       ctx.font = '80px sans-serif';
       ctx.fillText('🔒', 256, 380);
 
       ctx.fillStyle = '#c2a16d';
-      ctx.font = 'bold 26px "Be Vietnam Pro", sans-serif';
+      ctx.font = 'bold 26px "Be Vietnam Pro", "Segoe UI", sans-serif';
       ctx.fillText('ĐANG HOÀN THIỆN', 256, 460);
 
       const texture = new THREE.CanvasTexture(canvas);
@@ -667,7 +671,7 @@
 
     ctx.textAlign = 'center';
     ctx.fillStyle = '#e2be72';
-    ctx.font = 'bold 46px "Playfair Display", serif, "Times New Roman"';
+    ctx.font = 'bold 46px "Playfair Display", "Georgia", "Times New Roman", serif';
     ctx.fillText(text, 512, 145);
 
     const texture = new THREE.CanvasTexture(canvas);
@@ -707,11 +711,11 @@
 
     ctx.textAlign = 'center';
     ctx.fillStyle = '#e2be72';
-    ctx.font = 'bold 44px "Playfair Display", serif';
+    ctx.font = 'bold 44px "Playfair Display", "Georgia", "Times New Roman", serif';
     ctx.fillText('LỐI RA SẢNH CHÍNH', 256, 320);
 
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 30px "Be Vietnam Pro", sans-serif';
+    ctx.font = 'bold 30px "Be Vietnam Pro", "Segoe UI", sans-serif';
     ctx.fillText('🚪 CLICK ĐỂ RA SẢNH', 256, 440);
 
     const texture = new THREE.CanvasTexture(canvas);
@@ -806,15 +810,15 @@
 
     const catObj = NHOM.find(n => n.ma === artifact.nhom);
     npCtx.fillStyle = '#e69d45';
-    npCtx.font = 'bold 22px "Be Vietnam Pro", sans-serif';
+    npCtx.font = 'bold 22px "Be Vietnam Pro", "Segoe UI", sans-serif';
     npCtx.fillText((catObj ? catObj.ten.toUpperCase() : 'DI SẢN'), 30, 48);
 
     npCtx.fillStyle = '#ffffff';
-    npCtx.font = 'bold 32px "Playfair Display", serif, "Times New Roman"';
+    npCtx.font = 'bold 32px "Playfair Display", "Georgia", "Times New Roman", serif';
     npCtx.fillText(artifact.ten, 30, 95);
 
     npCtx.fillStyle = '#d4af5f';
-    npCtx.font = '18px "Be Vietnam Pro", sans-serif';
+    npCtx.font = '500 18px "Be Vietnam Pro", "Segoe UI", sans-serif';
     npCtx.fillText('🔍 Nhấn để xem cận cảnh', 30, 128);
 
     const npTexture = new THREE.CanvasTexture(nameplateCanvas);
@@ -853,6 +857,56 @@
     ctx.lineTo(x, y + radius);
     ctx.quadraticCurveTo(x, y, x + radius, y);
     ctx.closePath();
+  }
+
+  // Dựng một "đầu đao" (góc mái cong vút lên của kiến trúc đình chùa) tại một
+  // góc mái cụ thể. SỬA LỖI: bản trước dùng MỘT hình trụ thẳng (đối xứng quanh
+  // trục của chính nó) rồi gán rotation.x/rotation.y thủ công — vì hình trụ
+  // đối xứng quanh trục, rotation.y không làm silhouette thay đổi gì cả, nên
+  // cả 4 góc trông giống hệt nhau dù ang khác nhau, và hình cũng chỉ là một
+  // que thẳng chứ không cong.
+  // Cách sửa: ghép 3 đoạn hình trụ thon nối tiếp nhau, đoạn sau dốc hơn đoạn
+  // trước (mô phỏng đường cong vút lên), và định hướng MỖI đoạn bằng quaternion
+  // tính từ vector hướng thật trong không gian 3D — luôn đúng cho mọi góc ang,
+  // không phụ thuộc việc gán Euler rotation thủ công.
+  //   g            — group cha để add mesh vào
+  //   material     — vật liệu gỗ dùng cho đầu đao
+  //   ang          — góc phương vị của góc mái (radian), đã tính sẵn độ lệch 45°
+  //   edgeRadius   — khoảng cách từ tâm tháp tới mép mái tại tầng này
+  //   baseY        — độ cao Y của mép mái tại tầng này
+  //   scale        — hệ số tỉ lệ kích thước đầu đao (tầng trên nhỏ hơn tầng dưới)
+  function taoDauDao(g, material, ang, edgeRadius, baseY, scale) {
+    const outDir = new THREE.Vector3(Math.cos(ang), 0, Math.sin(ang));
+    const up = new THREE.Vector3(0, 1, 0);
+
+    // 3 đoạn thanh thoát: gốc ôm thoải theo góc ngói -> giữa vút chéo lên -> đầu vuốt nhọn cong đứng
+    const segments = [
+      { len: 0.075 * scale, rBase: 0.014 * scale, rTip: 0.009 * scale, riseAngle: 0.25 },
+      { len: 0.065 * scale, rBase: 0.009 * scale, rTip: 0.005 * scale, riseAngle: 0.80 },
+      { len: 0.055 * scale, rBase: 0.005 * scale, rTip: 0.002 * scale, riseAngle: 1.45 },
+    ];
+
+    const cursor = outDir.clone().multiplyScalar(edgeRadius);
+    cursor.y = baseY;
+
+    segments.forEach(seg => {
+      const segDir = new THREE.Vector3(
+        outDir.x * Math.cos(seg.riseAngle),
+        Math.sin(seg.riseAngle),
+        outDir.z * Math.cos(seg.riseAngle)
+      ).normalize();
+
+      const mesh = new THREE.Mesh(
+        new THREE.CylinderGeometry(seg.rTip, seg.rBase, seg.len, 8),
+        material
+      );
+      // Định hướng đoạn theo đúng segDir bằng quaternion — chuẩn xác cho mọi góc phương vị
+      mesh.quaternion.setFromUnitVectors(up, segDir);
+      mesh.position.copy(cursor).addScaledVector(segDir, seg.len / 2);
+      g.add(mesh);
+
+      cursor.addScaledVector(segDir, seg.len);
+    });
   }
 
   // ==========================================================================
@@ -942,16 +996,10 @@
         roof1.position.y = 0.38;
         g.add(roof1);
 
-        // Tạo 4 đầu đao cong vút ở 4 góc mái tầng 1
+        // Tạo 4 đầu đao cong vút ở 4 góc mái tầng 1 (khớp mép ngói)
         const corners = [0, Math.PI / 2, Math.PI, Math.PI * 1.5];
         corners.forEach(ang => {
-          const daoMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.04, 0.16, 6), limWood);
-          daoMesh.rotation.x = -Math.PI / 3.2;
-          daoMesh.rotation.y = ang + Math.PI / 4;
-          const ex = Math.cos(ang + Math.PI / 4) * 0.44;
-          const ez = Math.sin(ang + Math.PI / 4) * 0.44;
-          daoMesh.position.set(ex, 0.44, ez);
-          g.add(daoMesh);
+          taoDauDao(g, limWood, ang + Math.PI / 4, 0.58, 0.33, 1.0);
         });
 
         // 4. TẦNG 2: Lan can con tiện chạy vòng quanh & Cửa dàn quạt
@@ -995,13 +1043,7 @@
         g.add(roof2);
 
         corners.forEach(ang => {
-          const daoMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.03, 0.13, 6), limWood);
-          daoMesh.rotation.x = -Math.PI / 3.4;
-          daoMesh.rotation.y = ang + Math.PI / 4;
-          const ex = Math.cos(ang + Math.PI / 4) * 0.33;
-          const ez = Math.sin(ang + Math.PI / 4) * 0.33;
-          daoMesh.position.set(ex, 0.75, ez);
-          g.add(daoMesh);
+          taoDauDao(g, limWood, ang + Math.PI / 4, 0.43, 0.655, 0.78);
         });
 
         // TẦNG MÁI 3: Mái đỉnh
@@ -1011,13 +1053,7 @@
         g.add(roof3);
 
         corners.forEach(ang => {
-          const daoMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.025, 0.10, 6), limWood);
-          daoMesh.rotation.x = -Math.PI / 3.4;
-          daoMesh.rotation.y = ang + Math.PI / 4;
-          const ex = Math.cos(ang + Math.PI / 4) * 0.23;
-          const ez = Math.sin(ang + Math.PI / 4) * 0.23;
-          daoMesh.position.set(ex, 0.92, ez);
-          g.add(daoMesh);
+          taoDauDao(g, limWood, ang + Math.PI / 4, 0.30, 0.845, 0.60);
         });
 
         // ĐỈNH THÁP: Tòa sen đỡ phía dưới + Bầu hồ lô đồng 2 khối cầu thắt eo
@@ -1942,6 +1978,8 @@
     APP_STATE.currentView = 'transition';
 
     closeDrawer();
+    dom.bottomDock.classList.add('hidden');
+    dom.bottomDock.style.display = 'none';
 
     if (lobbyGroup && !scene.children.includes(lobbyGroup)) {
       scene.add(lobbyGroup);
@@ -2286,9 +2324,9 @@
     if (e.key === 'Escape') {
       if (dom.modalHelp.classList.contains('open')) {
         dom.modalHelp.classList.remove('open');
-      } else if (dom.drawer.classList.contains('open')) {
+      } else if (APP_STATE.currentView === 'artifact_focus' || APP_STATE.selectedArtifactId !== null || dom.drawer.classList.contains('open')) {
         viewRoomOverview();
-      } else if (APP_STATE.currentRoomId === 'thaibinh') {
+      } else if (APP_STATE.currentRoomId === 'thaibinh' || APP_STATE.currentView === 'thaibinh_room') {
         returnToLobby();
       }
     } else if (e.key === 'Tab') {
@@ -2383,6 +2421,7 @@
     if (APP_STATE.currentView === 'lobby') {
       dom.locationCrumb.innerHTML = 'Tiền sảnh đón';
       dom.btnBackLobby.classList.add('hidden');
+      dom.bottomDock.classList.add('hidden');
       dom.bottomDock.style.display = 'none';
       if (dom.hintTag) dom.hintTag.innerText = 'TIỀN SẢNH';
       if (dom.hintText) dom.hintText.innerText = 'Click vào Cổng Vòm để bước vào gian trưng bày';
@@ -2399,6 +2438,7 @@
 
       dom.locationCrumb.innerHTML = crumbHtml;
       dom.btnBackLobby.classList.remove('hidden');
+      dom.bottomDock.classList.remove('hidden');
       dom.bottomDock.style.display = 'flex';
       if (dom.hintTag) dom.hintTag.innerText = 'HƯỚNG DẪN';
       if (dom.hintText) dom.hintText.innerText = 'Kéo chuột để quan sát • Click hiện vật để xem chi tiết • Lăn chuột để phóng to • Esc để lùi';
@@ -2490,6 +2530,18 @@
     renderer.render(scene, camera);
   }
 
-  window.addEventListener('DOMContentLoaded', init);
+  function startApp() {
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(() => {
+        init();
+      }).catch(() => {
+        init();
+      });
+    } else {
+      init();
+    }
+  }
+
+  window.addEventListener('DOMContentLoaded', startApp);
 
 })();

@@ -16,7 +16,7 @@
   --text-muted: #c2b7a7;
   --text-dim: #8e8273;
   --shadow-warm: 0 16px 36px rgba(0, 0, 0, 0.6);
-  --font-serif: 'Cinzel', 'Playfair Display', 'Times New Roman', 'Georgia', serif;
+  --font-serif: 'Playfair Display', 'Cormorant Garamond', 'Georgia', 'Times New Roman', serif;
   --font-sans: 'Be Vietnam Pro', 'Segoe UI', system-ui, -apple-system, sans-serif;
   --transition-smooth: all 0.35s cubic-bezier(0.25, 1, 0.5, 1);
 }
@@ -260,6 +260,10 @@ html, body {
   max-width: 900px;
   margin: 0 auto;
   width: 100%;
+}
+
+.bottom-dock.hidden {
+  display: none !important;
 }
 
 .category-tabs {
