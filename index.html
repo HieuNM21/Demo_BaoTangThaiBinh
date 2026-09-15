@@ -1,55 +1,160 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-  <title>Bảo tàng số Thái Bình</title>
-  <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bảo tàng số Di sản Thái Bình — Dự án KHKT</title>
+
+  <!-- Google Fonts (Tự động fallback sang hệ thống khi trình chiếu offline) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Cinzel:wght@600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- Màn hình chào — hiện trước khi vào bảo tàng -->
-  <div id="man-hinh-chao">
-    <div class="chao-noi-dung">
-      <p class="chao-nhan">Bảo tàng số</p>
-      <h1>Di sản Thái Bình</h1>
-      <p class="chao-mo-ta">Một hành trình bước vào không gian trưng bày ba chiều, tìm hiểu di sản văn hoá và làng nghề của vùng đất Thái Bình.</p>
-      <button id="nut-bat-dau">Bước vào bảo tàng</button>
-      <p class="chao-huong-dan">Chuột: kéo để xoay góc nhìn · Bàn phím: Tab chọn hiện vật, Enter tiến lại gần, Esc lùi ra</p>
+
+  <!-- Khung Canvas WebGL 3D -->
+  <div id="webgl-container" tabindex="0" aria-label="Không gian trưng bày 3D bảo tàng"></div>
+
+  <!-- Lớp Giao Diện HUD & Điều Khiển -->
+  <div id="ui-layer">
+
+    <!-- 1. Thanh Tiêu Đề Phía Trên (Header Bar) -->
+    <header class="header-bar" role="banner">
+      <div class="brand-info">
+        <div class="museum-emblem" aria-hidden="true">🏛️</div>
+        <div class="title-group">
+          <h1>BẢO TÀNG SỐ DI SẢN THÁI BÌNH</h1>
+          <div class="location-indicator" id="location-crumb" aria-live="polite">
+            Tiền sảnh đón
+          </div>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <button id="btn-back-lobby" class="btn-ui btn-gold hidden" title="Quay lại Tiền sảnh đón">
+          <span>🏛️</span>
+          <span>Về Sảnh chính</span>
+        </button>
+        <button id="btn-overview" class="btn-ui" title="Xem toàn cảnh gian phòng">
+          <span>👁️</span>
+          <span>Toàn cảnh</span>
+        </button>
+        <button id="btn-help" class="btn-ui" title="Hướng dẫn & Thông tin dự án">
+          <span>ℹ️</span>
+          <span>Giới thiệu</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- 2. Hướng Dẫn Nhanh Giữa Màn Hình (Interaction Hint) -->
+    <div class="interaction-hint" id="interaction-hint" aria-live="polite">
+      <span class="key-tag" id="hint-tag">HƯỚNG DẪN</span>
+      <span id="hint-text">Click vào Cổng Vòm để bước vào gian trưng bày</span>
+      <button class="btn-hint-close" id="btn-close-hint" title="Ẩn hướng dẫn" aria-label="Ẩn hướng dẫn">✕</button>
     </div>
+
+    <!-- 3. Thanh Chọn Hiện Vật & Danh Mục Dưới Đáy (Bottom Dock) -->
+    <nav class="bottom-dock" id="bottom-dock" aria-label="Danh mục hiện vật">
+      <!-- Tabs 4 Phân Khu -->
+      <div class="category-tabs" id="category-tabs" role="tablist"></div>
+      <!-- Danh sách thẻ hiện vật -->
+      <div class="artifacts-carousel" id="artifacts-carousel" role="list"></div>
+    </nav>
+
   </div>
 
-  <!-- Canvas dựng cảnh 3D -->
-  <canvas id="canvas-3d"></canvas>
-
-  <!-- Thanh tiêu đề trên cùng -->
-  <div id="thanh-tieu-de">
-    <span id="ten-khu-vuc-hien-tai">Tiền sảnh</span>
-    <button id="nut-ve-sanh" hidden>← Về sảnh</button>
-  </div>
-
-  <!-- Bảng chú thích điều khiển (góc dưới) -->
-  <div id="goi-y-dieu-khien">Kéo chuột để nhìn quanh · Click vào hiện vật để xem chi tiết</div>
-
-  <!-- Panel chi tiết hiện vật — DOM/CSS bình thường -->
-  <aside id="panel-chi-tiet" hidden>
-    <button id="nut-dong-panel" aria-label="Đóng">✕</button>
-    <p class="panel-nhan" id="panel-nhom"></p>
-    <h2 id="panel-ten"></h2>
-    <p id="panel-mo-ta-ngan"></p>
-    <div class="panel-phan">
-      <h3>Câu chuyện</h3>
-      <p id="panel-cau-chuyen"></p>
+  <!-- 4. Panel Chi Tiết Hiện Vật (Right Sliding Drawer) -->
+  <aside class="detail-drawer" id="detail-drawer" aria-labelledby="drawer-title" aria-modal="true" role="dialog">
+    <div class="drawer-header">
+      <div>
+        <div class="badge-group">
+          <span class="group-badge" id="drawer-badge">DI SẢN VĂN HÓA</span>
+        </div>
+        <h2 class="drawer-title" id="drawer-title">Tên hiện vật</h2>
+      </div>
+      <button class="btn-close" id="btn-close-drawer" aria-label="Đóng bảng chi tiết">✕</button>
     </div>
-    <div class="panel-phan panel-ban-co-biet">
-      <h3>Bạn có biết?</h3>
-      <p id="panel-ban-co-biet"></p>
+
+    <div class="drawer-body">
+      <!-- Mô tả ngắn gọn -->
+      <div class="info-section">
+        <div class="section-label">📜 Giới thiệu</div>
+        <p class="lead-text" id="drawer-lead"></p>
+      </div>
+
+      <!-- Câu chuyện di sản -->
+      <div class="info-section">
+        <div class="section-label">📖 Câu chuyện lịch sử</div>
+        <p class="body-text" id="drawer-story"></p>
+      </div>
+
+      <!-- Thẻ Bạn có biết -->
+      <div class="fact-card">
+        <div class="fact-title">💡 Bạn có biết?</div>
+        <div class="fact-content" id="drawer-fact"></div>
+      </div>
     </div>
-    <button id="nut-lui-ra">Lùi ra</button>
+
+    <div class="drawer-footer">
+      <button class="btn-ui" id="btn-prev-artifact" title="Hiện vật trước">
+        <span>← Trước</span>
+      </button>
+      <span style="font-size: 0.75rem; color: var(--text-dim);">Dùng phím Tab để chuyển</span>
+      <button class="btn-ui" id="btn-next-artifact" title="Hiện vật tiếp theo">
+        <span>Sau →</span>
+      </button>
+    </div>
   </aside>
 
-  <!-- Thư viện Three.js tải cục bộ, chạy offline -->
+  <!-- 5. Modal Giới Thiệu & Hướng Dẫn Dự Án KHKT -->
+  <div class="modal-backdrop" id="modal-help" role="dialog" aria-modal="true">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h2>DỰ ÁN KHOA HỌC KỸ THUẬT: BẢO TÀNG SỐ DI SẢN</h2>
+        <button class="btn-close" id="btn-close-help" aria-label="Đóng hộp thoại">✕</button>
+      </div>
+      <div class="modal-body">
+        <p><strong>Bảo tàng số Di sản Thái Bình</strong> là không gian trải nghiệm 3D thời gian thực, số hóa và phục dựng các giá trị di sản kiến trúc, văn hóa nghệ thuật và làng nghề truyền thống đặc sắc của vùng đồng bằng châu thổ sông Hồng.</p>
+
+        <div class="guide-grid">
+          <div class="guide-card">
+            <h4>🖱️ Điều hướng chuột</h4>
+            <p>Nhấn giữ chuột trái và kéo để xoay góc nhìn quan sát quanh phòng hoặc quanh hiện vật.</p>
+          </div>
+          <div class="guide-card">
+            <h4>🔍 Chọn hiện vật</h4>
+            <p>Click trực tiếp vào bệ trưng bày trong không gian 3D hoặc chọn trên thanh điều hướng dưới đáy.</p>
+          </div>
+          <div class="guide-card">
+            <h4>⌨️ Phím tắt</h4>
+            <p><span class="key-tag">Tab</span> Chuyển hiện vật • <span class="key-tag">Enter</span> Xem chi tiết • <span class="key-tag">Esc</span> Lùi lại</p>
+          </div>
+          <div class="guide-card">
+            <h4>🏛️ Kiến trúc bảo tàng</h4>
+            <p>Phân tách rõ Tiền sảnh, Gian trưng bày, 4 Khu chuyên đề với hệ thống đèn rọi Gallery chân thực.</p>
+          </div>
+        </div>
+
+        <div style="margin-top: 0.5rem; font-size: 0.8rem; color: var(--accent-gold); border-top: 1px solid rgba(212,175,95,0.2); padding-top: 0.75rem;">
+          💡 <em>Hệ thống hoạt động hoàn toàn Offline, tối ưu hiển thị trên cả máy tính bàn, máy tính bảng và màn hình trình chiếu.</em>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. Toast Thông Báo Gian Hưng Yên Đang Khóa -->
+  <div class="toast-locked" id="toast-locked" role="alert">
+    <span>🔒</span>
+    <span>Gian Hưng Yên đang trong giai đoạn phục dựng 3D — sẽ sớm mở cửa!</span>
+  </div>
+
+  <!-- Thư viện Three.js Cục bộ (Chạy Offline 100%) -->
   <script src="three.min.js"></script>
+  <!-- Dữ liệu bảo tàng -->
   <script src="data.js"></script>
+  <!-- Logic điều khiển & 3D WebGL -->
   <script src="script.js"></script>
 </body>
 </html>
