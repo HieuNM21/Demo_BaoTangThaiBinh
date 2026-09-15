@@ -2,8 +2,15 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
   <title>Bảo tàng số Di sản Thái Bình — Dự án KHKT</title>
+  <meta name="description" content="Bảo tàng số 3D Di sản Văn hóa Thái Bình — Trải nghiệm WebGL thời gian thực, phục dựng gác chuông chùa Keo, lăng mộ Tam Đường, chạm bạc Đồng Xâm, dệt chiếu Hới...">
+  <meta name="theme-color" content="#120e0c">
+
+  <!-- Open Graph / Netlify Social Cards -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Bảo tàng số Di sản Thái Bình — Dự án KHKT">
+  <meta property="og:description" content="Không gian trải nghiệm 3D di sản lịch sử, văn hóa và làng nghề truyền thống châu thổ sông Hồng.">
 
   <!-- Google Fonts với hỗ trợ đầy đủ bộ ký tự tiếng Việt (Vietnamese Diacritics) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -35,7 +42,15 @@
       <div class="header-actions">
         <button id="btn-back-lobby" class="btn-ui btn-gold hidden" title="Quay lại Tiền sảnh đón">
           <span>🏛️</span>
-          <span>Về Sảnh chính</span>
+          <span>Về Sảnh</span>
+        </button>
+        <button id="btn-rotate" class="btn-ui hidden" title="Bật/Tắt tự động xoay 360°">
+          <span id="rotate-icon">🔄</span>
+          <span id="rotate-text">Xoay 360°</span>
+        </button>
+        <button id="btn-sound" class="btn-ui" title="Bật/Tắt âm thanh hiệu ứng">
+          <span id="sound-icon">🔊</span>
+          <span class="sound-text">Âm thanh</span>
         </button>
         <button id="btn-overview" class="btn-ui" title="Xem toàn cảnh gian phòng">
           <span>👁️</span>
@@ -53,6 +68,16 @@
       <span class="key-tag" id="hint-tag">HƯỚNG DẪN</span>
       <span id="hint-text">Click vào Cổng Vòm để bước vào gian trưng bày</span>
       <button class="btn-hint-close" id="btn-close-hint" title="Ẩn hướng dẫn" aria-label="Ẩn hướng dẫn">✕</button>
+    </div>
+
+    <!-- 2.1 Tooltip Chú Giải Điểm Nhấn Văn Hóa (Cultural Hotspot Popup) -->
+    <div class="hotspot-popup" id="hotspot-popup" role="tooltip" aria-hidden="true">
+      <div class="hotspot-popup-header">
+        <span class="hotspot-tag">🌟 ĐIỂM NHẤN DI SẢN</span>
+        <button class="hotspot-close" id="btn-close-hotspot" aria-label="Đóng chú giải">✕</button>
+      </div>
+      <h4 class="hotspot-title" id="hotspot-title">Tên điểm nhấn</h4>
+      <p class="hotspot-desc" id="hotspot-desc">Mô tả giá trị lịch sử và nghệ thuật thủ công...</p>
     </div>
 
     <!-- 3. Thanh Chọn Hiện Vật & Danh Mục Dưới Đáy (Bottom Dock) -->
@@ -125,7 +150,15 @@
           </div>
           <div class="guide-card">
             <h4>🔎 Phóng to xem chi tiết</h4>
-            <p>Khi đang cận cảnh một hiện vật: lăn chuột (hoặc chụm 2 ngón trên di động) để phóng to/thu nhỏ, xem rõ từng đường chạm khắc.</p>
+            <p>Khi đang cận cảnh một hiện vật: lăn chuột (hoặc chụm 2 ngón trên di động) để phóng to/thu nhỏ, ngắm rõ từng thớ sợi, đường chạm búa.</p>
+          </div>
+          <div class="guide-card">
+            <h4>🌟 Điểm nhấn Di sản (✦)</h4>
+            <p>Click vào các biểu tượng <strong style="color:var(--accent-gold);">✦</strong> gắn trên hiện vật để mở chú giải chi tiết về kỹ thuật chế tác và biểu tượng văn hóa.</p>
+          </div>
+          <div class="guide-card">
+            <h4>🔄 Chế độ xoay 360° & Âm thanh</h4>
+            <p>Bật/tắt tự động xoay hiện vật (Showroom Mode) và âm thanh chuông đồng cổ truyền bằng các nút trên thanh công cụ.</p>
           </div>
           <div class="guide-card">
             <h4>🔍 Chọn hiện vật</h4>
@@ -135,14 +168,10 @@
             <h4>⌨️ Phím tắt</h4>
             <p><span class="key-tag">Tab</span> Chuyển hiện vật • <span class="key-tag">Enter</span> Xem chi tiết • <span class="key-tag">Esc</span> Lùi lại</p>
           </div>
-          <div class="guide-card">
-            <h4>🏛️ Kiến trúc bảo tàng</h4>
-            <p>Phân tách rõ Tiền sảnh, Gian trưng bày, 4 Khu chuyên đề với hệ thống đèn rọi Gallery chân thực.</p>
-          </div>
         </div>
 
         <div style="margin-top: 0.5rem; font-size: 0.8rem; color: var(--accent-gold); border-top: 1px solid rgba(212,175,95,0.2); padding-top: 0.75rem;">
-          💡 <em>Hệ thống hoạt động hoàn toàn Offline, tối ưu hiển thị trên cả máy tính bàn, máy tính bảng và màn hình trình chiếu.</em>
+          💡 <em>Hệ thống hoạt động mượt mà 60 FPS, không dùng ảnh nặng/HDRI ngoài, sẵn sàng triển khai trên Netlify và các thiết bị di động.</em>
         </div>
       </div>
     </div>

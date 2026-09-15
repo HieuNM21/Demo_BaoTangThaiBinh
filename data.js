@@ -42,7 +42,12 @@ const ARTIFACTS = [
     mauSac: "#8C4A2F",
     hinhDang: "thap-tang-mai",
     trangThai: "mo",
-    toaDoKhongGian: { x: -4.8, z: -7.5 }
+    toaDoKhongGian: { x: -4.8, z: -7.5 },
+    diemNhan: [
+      { x: 0, y: 0.55, z: 0.16, tieuDe: "84 Cửa dàn quạt", moTa: "Hệ mộng gỗ xòe nan quạt độc bản giúp thông gió và đón ánh sáng tự nhiên" },
+      { x: 0, y: 0.54, z: 0.0, tieuDe: "Đại hồng chung 1686", moTa: "Chuông đồng thời Lê Trung Hưng nặng hơn 1 tấn với quai rồng uy nghiêm" },
+      { x: 0, y: 1.02, z: 0.0, tieuDe: "Tòa sen & Hồ lô đồng", moTa: "Đỉnh tháp mang biểu tượng thanh tịnh, trường tồn ngàn năm" }
+    ]
   },
   {
     id: "tam-duong",
@@ -55,7 +60,11 @@ const ARTIFACTS = [
     mauSac: "#5A6552",
     hinhDang: "mo-dat-bia-da",
     trangThai: "mo",
-    toaDoKhongGian: { x: -2.8, z: -4.5 }
+    toaDoKhongGian: { x: -2.8, z: -4.5 },
+    diemNhan: [
+      { x: 0, y: 0.30, z: 0.16, tieuDe: "Rùa đá cõng bia", moTa: "Bia đá xanh chạm Lưỡng Long Chầu Nguyệt lưu dấu tích vương triều Trần" },
+      { x: 0, y: 0.38, z: -0.20, tieuDe: "Gò mộ tiên tổ", moTa: "Gò đất tròn cổ kính nơi an táng các vị vua khai sáng hào khí Đông A" }
+    ]
   },
   {
     id: "cheo-khuoc",
@@ -68,7 +77,11 @@ const ARTIFACTS = [
     mauSac: "#B85D43",
     hinhDang: "mat-na-cheo",
     trangThai: "mo",
-    toaDoKhongGian: { x: -4.8, z: 2.0 }
+    toaDoKhongGian: { x: -4.8, z: 2.0 },
+    diemNhan: [
+      { x: -0.16, y: 0.28, z: 0.08, tieuDe: "Mặt nạ Hề gậy & Hề mồi", moTa: "Biểu trưng cho tiếng cười châm biếm sâu cay và tinh thần lạc quan dân gian" },
+      { x: 0.18, y: 0.24, z: 0.08, tieuDe: "Trống đế & Đàn nhị", moTa: "Bộ nhạc cụ giữ nhịp phách chủ đạo cho từng làn điệu chèo cổ ngàn năm" }
+    ]
   },
   {
     id: "hoi-chua-keo",
@@ -81,7 +94,11 @@ const ARTIFACTS = [
     mauSac: "#9E2A2B",
     hinhDang: "trong-hoi",
     trangThai: "mo",
-    toaDoKhongGian: { x: -2.8, z: 5.0 }
+    toaDoKhongGian: { x: -2.8, z: 5.0 },
+    diemNhan: [
+      { x: 0, y: 0.48, z: 0.0, tieuDe: "Trống sấm Lễ hội", moTa: "Thân gỗ mít sơn son vẽ mây lửa, mặt da trâu rền vang âm hưởng sông Trà Lý" },
+      { x: 0, y: 0.22, z: 0.30, tieuDe: "Kiệu Bát Cống", moTa: "Kiệu rước Thánh thếp vàng rực rỡ theo nghi thức cung đình thời Lê" }
+    ]
   },
   {
     id: "dong-xam",
@@ -94,7 +111,11 @@ const ARTIFACTS = [
     mauSac: "#D3D7DC",
     hinhDang: "mam-bac",
     trangThai: "mo",
-    toaDoKhongGian: { x: 2.8, z: -4.5 }
+    toaDoKhongGian: { x: 2.8, z: -4.5 },
+    diemNhan: [
+      { x: 0, y: 0.18, z: 0.0, tieuDe: "Mâm Bát Tiên chạm lộng", moTa: "Nét chạm trổ gõ búa thủ công nổi khối tinh vi, không dùng khuôn đúc lặp lại" },
+      { x: 0, y: 0.04, z: 0.22, tieuDe: "Chân đế Tam Sư", moTa: "Ba tượng sư tử đồng thau đỡ mâm bồng vững chãi và uy nghi" }
+    ]
   },
   {
     id: "chieu-hoi",
@@ -107,7 +128,11 @@ const ARTIFACTS = [
     mauSac: "#D4A373",
     hinhDang: "chieu-cuon",
     trangThai: "mo",
-    toaDoKhongGian: { x: 4.8, z: -7.5 }
+    toaDoKhongGian: { x: 4.8, z: -7.5 },
+    diemNhan: [
+      { x: 0, y: 0.04, z: 0.0, tieuDe: "Hoa văn chữ Thọ ngũ sắc", moTa: "Sợi cói nhuộm màu tươi sáng dệt hoa văn quả trám cầu may mắn trường thọ" },
+      { x: 0.20, y: 0.04, z: 0.15, tieuDe: "Con thoi gỗ bóng", moTa: "Kỹ nghệ dệt thủ công kẽo kẹt do Trạng nguyên Phạm Đôn Lễ truyền dạy" }
+    ]
   },
   {
     id: "banh-cay",
@@ -120,7 +145,11 @@ const ARTIFACTS = [
     mauSac: "#E9C46A",
     hinhDang: "khay-banh",
     trangThai: "mo",
-    toaDoKhongGian: { x: 2.8, z: 2.0 }
+    toaDoKhongGian: { x: 2.8, z: 2.0 },
+    diemNhan: [
+      { x: 0, y: 0.14, z: 0.0, tieuDe: "Khối bánh ngũ sắc", moTa: "Nếp cái hoa vàng, mứt gấc, dành dành hòa cùng vị cay nồng ấm của gừng tươi" },
+      { x: 0, y: 0.06, z: 0.24, tieuDe: "Quà dâng tiến vua", moTa: "Nữ quan Nguyễn Thị Tần sáng tạo dâng tiến vua Lê Hiển Tông ngự lãm" }
+    ]
   },
   {
     id: "con-vanh",
@@ -133,7 +162,11 @@ const ARTIFACTS = [
     mauSac: "#2A9D8F",
     hinhDang: "dio-rama-bien",
     trangThai: "mo",
-    toaDoKhongGian: { x: 4.8, z: 5.0 }
+    toaDoKhongGian: { x: 4.8, z: 5.0 },
+    diemNhan: [
+      { x: -0.04, y: 0.22, z: 0.12, tieuDe: "Rừng sú vẹt rễ kiềng", moTa: "Hệ sinh thái rừng ngập mặn thuộc Khu dự trữ sinh quyển UNESCO" },
+      { x: 0.10, y: 0.38, z: -0.18, tieuDe: "Cò trắng di trú", moTa: "Nơi dừng chân của hàng ngàn cánh chim di cư ven cửa biển Ba Lạt" }
+    ]
   },
 
   // ==========================================

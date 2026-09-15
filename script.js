@@ -33,6 +33,9 @@
   const mouse = new THREE.Vector2();
   let interactableObjects = []; // Danh sách object có thể click (cổng, bệ, hiện vật)
   let hoveredObject = null;
+  const pedestalSpotlights = {}; // Quản lý spotlight của từng bệ để bật/tắt shadow động
+  const pedestalGroups = {};     // Quản lý Group bệ để gán Hotspot
+  const activeHotspotSprites = []; // Danh sách Hotspot Sprite đang hiển thị
 
   // Quản lý Camera & Chuyển động (Animation)
   const cameraControl = {
@@ -46,12 +49,8 @@
     orbitRadius: 2.2,
     orbitTarget: new THREE.Vector3(0, 1.4, 0),
     isOrbiting: false,
-    // Giới hạn phóng to/thu nhỏ khi đang cận cảnh một hiện vật. minOrbitRadius
-    // đặt đủ gần (0.32) để nhìn rõ các chi tiết chạm khắc nhỏ (đinh tán, hạt
-    // vừng, lông mày...) — nếu không có cách phóng to này, các chi tiết dựng
-    // rất kỹ trong createUniqueArtifactGeometry() không bao giờ được nhìn thấy
-    // rõ, vì khoảng cách mặc định lúc bay tới (~2.1) quá xa để thấy chi tiết
-    // ở tỉ lệ nhỏ như vậy.
+    autoRotate: true,  // Tự động xoay 360 độ khi xem cận cảnh (Showroom mode)
+    lastInteraction: Date.now(),
     minOrbitRadius: 0.32,
     maxOrbitRadius: 2.4,
     prevPinchDist: null
@@ -80,6 +79,11 @@
     container: document.getElementById('webgl-container'),
     locationCrumb: document.getElementById('location-crumb'),
     btnBackLobby: document.getElementById('btn-back-lobby'),
+    btnRotate: document.getElementById('btn-rotate'),
+    rotateIcon: document.getElementById('rotate-icon'),
+    rotateText: document.getElementById('rotate-text'),
+    btnSound: document.getElementById('btn-sound'),
+    soundIcon: document.getElementById('sound-icon'),
     btnOverview: document.getElementById('btn-overview'),
     btnHelp: document.getElementById('btn-help'),
     drawer: document.getElementById('detail-drawer'),
@@ -98,10 +102,58 @@
     hintTag: document.getElementById('hint-tag'),
     hintText: document.getElementById('hint-text'),
     btnCloseHint: document.getElementById('btn-close-hint'),
+    hotspotPopup: document.getElementById('hotspot-popup'),
+    hotspotTitle: document.getElementById('hotspot-title'),
+    hotspotDesc: document.getElementById('hotspot-desc'),
+    btnCloseHotspot: document.getElementById('btn-close-hotspot'),
     modalHelp: document.getElementById('modal-help'),
     btnCloseHelp: document.getElementById('btn-close-help'),
     toastLocked: document.getElementById('toast-locked')
   };
+
+  // Dựng một environment map đơn giản (không cần file ảnh/HDRI ngoài) để các
+  // vật liệu kim loại (bạc, đồng, vàng thếp) thực sự PHẢN CHIẾU thay vì chỉ
+  // xám xịt phẳng lì. Đây là giới hạn vật lý của PBR: MeshStandardMaterial với
+  // metalness cao chỉ tạo highlight từ đèn trực tiếp, không có gì để "phản
+  // chiếu" nếu scene.environment trống — dù roughness/metalness đặt đúng,
+  // mâm bạc, vành đồng, tòa sen thếp vàng... vẫn trông xỉn màu, không "sáng
+  // bóng" như mô tả. Cách khắc phục không cần HDRI ngoài: dựng một scene nhỏ
+  // với vài mảng màu ấm mô phỏng ánh sáng phòng trưng bày, rồi dùng
+  // PMREMGenerator (có sẵn trong three.js core) để "nướng" thành một
+  // environment map, gán vào scene.environment — chạy một lần lúc khởi động.
+  function taoMoiTruongPhanChieu(renderer) {
+    const envScene = new THREE.Scene();
+
+    const skyBox = new THREE.Mesh(
+      new THREE.BoxGeometry(10, 10, 10),
+      [
+        new THREE.MeshBasicMaterial({ color: 0x3a2a1c, side: THREE.BackSide }), // +X
+        new THREE.MeshBasicMaterial({ color: 0x3a2a1c, side: THREE.BackSide }), // -X
+        new THREE.MeshBasicMaterial({ color: 0xe8c988, side: THREE.BackSide }), // +Y (trần sáng ấm, mô phỏng đèn rọi)
+        new THREE.MeshBasicMaterial({ color: 0x120e0a, side: THREE.BackSide }), // -Y (sàn tối)
+        new THREE.MeshBasicMaterial({ color: 0x2e2013, side: THREE.BackSide }), // +Z
+        new THREE.MeshBasicMaterial({ color: 0x2e2013, side: THREE.BackSide }), // -Z
+      ]
+    );
+    envScene.add(skyBox);
+
+    // Một mảng sáng nhỏ mô phỏng vệt highlight của đèn spotlight, để vật liệu
+    // bóng bắt được một điểm sáng rõ nét thay vì ánh sáng đều chung chung
+    const hotspotLight = new THREE.Mesh(
+      new THREE.PlaneGeometry(2.2, 2.2),
+      new THREE.MeshBasicMaterial({ color: 0xfff3d6 })
+    );
+    hotspotLight.position.set(0, 4.9, 0);
+    hotspotLight.rotation.x = Math.PI / 2;
+    envScene.add(hotspotLight);
+
+    const pmremGenerator = new THREE.PMREMGenerator(renderer);
+    pmremGenerator.compileCubemapShader();
+    const envTarget = pmremGenerator.fromScene(envScene, 0.035);
+    pmremGenerator.dispose();
+
+    return envTarget.texture;
+  }
 
   // ==========================================================================
   // KHỞI TẠO ỨNG DỤNG & SCENE THREE.JS
@@ -129,6 +181,10 @@
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.15;
     dom.container.appendChild(renderer.domElement);
+
+    // 3b. Environment map giúp vật liệu kim loại (bạc, đồng, vàng) phản chiếu
+    // thật thay vì xám phẳng — xem giải thích chi tiết ở taoMoiTruongPhanChieu()
+    scene.environment = taoMoiTruongPhanChieu(renderer);
 
     // 4. Khởi tạo Sảnh chính (Lobby)
     buildLobby();
@@ -158,8 +214,170 @@
   }
 
   // ==========================================================================
+  // HỆ THỐNG ÂM THANH TRUYỀN THỐNG (WEB AUDIO API - 100% OFFLINE)
+  // ==========================================================================
+  const SoundSystem = {
+    enabled: true,
+    audioCtx: null,
+
+    init() {
+      if (!this.audioCtx) {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) this.audioCtx = new AudioCtx();
+      }
+      if (this.audioCtx && this.audioCtx.state === 'suspended') {
+        this.audioCtx.resume();
+      }
+    },
+
+    playBell(freq = 520, duration = 2.2) {
+      if (!this.enabled) return;
+      this.init();
+      if (!this.audioCtx) return;
+
+      const now = this.audioCtx.currentTime;
+      const harmonics = [1, 2.05, 3.02];
+      const gains = [0.35, 0.16, 0.07];
+
+      harmonics.forEach((h, i) => {
+        const osc = this.audioCtx.createOscillator();
+        const gain = this.audioCtx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq * h, now);
+
+        gain.gain.setValueAtTime(gains[i], now);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+        osc.connect(gain);
+        gain.connect(this.audioCtx.destination);
+
+        osc.start(now);
+        osc.stop(now + duration);
+      });
+    },
+
+    playClick() {
+      if (!this.enabled) return;
+      this.init();
+      if (!this.audioCtx) return;
+
+      const now = this.audioCtx.currentTime;
+      const osc = this.audioCtx.createOscillator();
+      const gain = this.audioCtx.createGain();
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(620, now);
+      osc.frequency.exponentialRampToValueAtTime(240, now + 0.06);
+
+      gain.gain.setValueAtTime(0.12, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+
+      osc.connect(gain);
+      gain.connect(this.audioCtx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.06);
+    },
+
+    toggle() {
+      this.enabled = !this.enabled;
+      return this.enabled;
+    }
+  };
+
+  // ==========================================================================
   // VẬT LIỆU DÙNG CHUNG (PROCEDURAL & HIGH QUALITY MATERIALS)
   // ==========================================================================
+  // Bump map cho mâm bạc / kim loại gõ búa thủ công
+  function createHammeredBumpTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#808080';
+    ctx.fillRect(0, 0, 256, 256);
+
+    for (let i = 0; i < 500; i++) {
+      const x = Math.random() * 256;
+      const y = Math.random() * 256;
+      const r = 2 + Math.random() * 4;
+      const grad = ctx.createRadialGradient(x, y, 0, x, y, r);
+      grad.addColorStop(0, '#ffffff');
+      grad.addColorStop(0.6, '#999999');
+      grad.addColorStop(1, '#808080');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(5, 5);
+    return tex;
+  }
+
+  // Bump map cho thớ sợi dệt cói
+  function createSedgeBumpTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#808080';
+    ctx.fillRect(0, 0, 256, 256);
+
+    ctx.strokeStyle = '#a0a0a0';
+    ctx.lineWidth = 2;
+    for (let x = 0; x <= 256; x += 6) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, 256);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = '#606060';
+    ctx.lineWidth = 3;
+    for (let y = 0; y <= 256; y += 12) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(256, y);
+      ctx.stroke();
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(8, 8);
+    return tex;
+  }
+
+  // Bump map cho thớ gỗ lim dăm mịn
+  function createWoodBumpTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#808080';
+    ctx.fillRect(0, 0, 256, 256);
+
+    for (let y = 0; y < 256; y += 4) {
+      const shade = Math.floor(100 + Math.random() * 55);
+      ctx.fillStyle = `rgb(${shade},${shade},${shade})`;
+      ctx.fillRect(0, y, 256, 2 + Math.random() * 2);
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(2, 4);
+    return tex;
+  }
+
+  const bumpHammered = createHammeredBumpTexture();
+  const bumpSedge = createSedgeBumpTexture();
+  const bumpWood = createWoodBumpTexture();
+
   const materials = {
     // Sàn gỗ mun bóng bẩy bảo tàng
     woodFloor: createWoodMaterial(0x281d17, 0.35, 0.1),
@@ -172,13 +390,13 @@
     // Trần nhà
     ceiling: new THREE.MeshStandardMaterial({ color: 0x1f1916, roughness: 0.9 }),
     // Viền đồng vàng kim loại
-    brassGold: new THREE.MeshStandardMaterial({ color: 0xd4af5f, roughness: 0.3, metalness: 0.85 }),
-    // Bạc sáng chạm lộng
-    silverPure: new THREE.MeshStandardMaterial({ color: 0xf5f5f5, roughness: 0.15, metalness: 0.96 }),
+    brassGold: new THREE.MeshStandardMaterial({ color: 0xd4af5f, roughness: 0.25, metalness: 0.88, bumpMap: bumpHammered, bumpScale: 0.008 }),
+    // Bạc sáng chạm lộng (phản chiếu cao với bump gõ búa tinh vi)
+    silverPure: new THREE.MeshStandardMaterial({ color: 0xf5f5f5, roughness: 0.12, metalness: 0.98, bumpMap: bumpHammered, bumpScale: 0.015 }),
     // Sơn mài son đỏ cổ
     lacquerRed: new THREE.MeshStandardMaterial({ color: 0x9b1b1b, roughness: 0.2, metalness: 0.15 }),
     // Gỗ lim / trắc sẫm màu
-    ancientWood: new THREE.MeshStandardMaterial({ color: 0x422416, roughness: 0.65, metalness: 0.08 }),
+    ancientWood: new THREE.MeshStandardMaterial({ color: 0x422416, roughness: 0.65, metalness: 0.08, bumpMap: bumpWood, bumpScale: 0.025 }),
     // Đá xanh cổ khắc chạm
     ancientStone: new THREE.MeshStandardMaterial({ color: 0x616560, roughness: 0.85, metalness: 0.05 }),
     // Bệ trưng bày (Plinth) gỗ mun
@@ -770,11 +988,16 @@
     group.add(bottomRing);
 
     // 2. Đèn rọi Spotlight riêng từ trần
-    const spot = new THREE.SpotLight(0xfff1db, 1.5, 10, Math.PI / 6, 0.45, 1.2);
+    const spot = new THREE.SpotLight(0xfff1db, 1.6, 10, Math.PI / 6, 0.45, 1.2);
     spot.position.set(x, 5.0, z);
     spot.target = plinthMesh;
-    spot.castShadow = true;
+    spot.castShadow = false; // Tối ưu FPS: Bật đổ bóng nét cao chỉ khi focus vào bệ này
+    spot.shadow.mapSize.width = 512;
+    spot.shadow.mapSize.height = 512;
+    spot.shadow.bias = -0.0005;
     parent.add(spot);
+    pedestalSpotlights[artifact.id] = spot;
+    pedestalGroups[artifact.id] = group;
 
     // 3. Dựng hiện vật 3D chi tiết cao
     const artifactMeshGroup = createUniqueArtifactGeometry(artifact);
@@ -786,6 +1009,12 @@
       if (child.isMesh) {
         child.userData = { type: 'artifact', id: artifact.id, artifactData: artifact };
         interactableObjects.push(child);
+        // QUAN TRỌNG: trước đây các mesh chi tiết của hiện vật (cột, mái, mặt
+        // nạ, hoa văn...) không đổ bóng lên nhau hay lên bệ — dù hình khối
+        // dựng rất kỹ, thiếu đổ bóng khiến mọi chi tiết trông "phẳng", không
+        // có chiều sâu dưới ánh đèn rọi gallery. Bật đổ bóng cho từng mesh.
+        child.castShadow = true;
+        child.receiveShadow = true;
       }
     });
 
@@ -1940,11 +2169,97 @@
   }
 
   // ==========================================================================
+  // QUẢN LÝ ĐIỂM NHẤN VĂN HÓA (CULTURAL HOTSPOTS)
+  // ==========================================================================
+  function createHotspotSprite(hotspotData) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+
+    // Vầng hào quang phát sáng vàng ấm
+    const grad = ctx.createRadialGradient(64, 64, 8, 64, 64, 62);
+    grad.addColorStop(0, 'rgba(255, 245, 200, 1)');
+    grad.addColorStop(0.35, 'rgba(226, 190, 114, 0.95)');
+    grad.addColorStop(0.7, 'rgba(212, 175, 95, 0.35)');
+    grad.addColorStop(1, 'rgba(212, 175, 95, 0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 128, 128);
+
+    // Tâm tròn hổ phách viền trắng
+    ctx.fillStyle = '#261b14';
+    ctx.beginPath();
+    ctx.arc(64, 64, 24, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 4;
+    ctx.stroke();
+
+    ctx.font = 'bold 24px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#e2be72';
+    ctx.fillText('✦', 64, 64);
+
+    const tex = new THREE.CanvasTexture(canvas);
+    const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
+    const sprite = new THREE.Sprite(mat);
+    sprite.scale.set(0.16, 0.16, 1);
+    sprite.position.set(hotspotData.x, 1.05 + 0.02 + hotspotData.y, hotspotData.z);
+    sprite.userData = {
+      type: 'hotspot',
+      data: hotspotData,
+      baseScale: 0.16
+    };
+
+    return sprite;
+  }
+
+  function clearHotspots() {
+    activeHotspotSprites.forEach(s => {
+      if (s.parent) s.parent.remove(s);
+      if (s.material) {
+        if (s.material.map) s.material.map.dispose();
+        s.material.dispose();
+      }
+    });
+    activeHotspotSprites.length = 0;
+    hideHotspotPopup();
+  }
+
+  function spawnHotspotsForArtifact(artifact) {
+    clearHotspots();
+    const group = pedestalGroups[artifact.id];
+    if (!group || !artifact.diemNhan || artifact.diemNhan.length === 0) return;
+
+    artifact.diemNhan.forEach(dn => {
+      const sprite = createHotspotSprite(dn);
+      group.add(sprite);
+      activeHotspotSprites.push(sprite);
+    });
+  }
+
+  function showHotspotPopup(hotspotData) {
+    if (dom.hotspotTitle) dom.hotspotTitle.innerText = hotspotData.tieuDe;
+    if (dom.hotspotDesc) dom.hotspotDesc.innerText = hotspotData.moTa;
+    if (dom.hotspotPopup) dom.hotspotPopup.classList.add('show');
+    SoundSystem.playClick();
+  }
+
+  function hideHotspotPopup() {
+    if (dom.hotspotPopup) dom.hotspotPopup.classList.remove('show');
+  }
+
+  // ==========================================================================
   // 5. ĐIỀU HƯỚNG PHÒNG & CHUYỂN CẢNH CAMERA (STATE MACHINE) — SỬA LỖI 5
   // ==========================================================================
   function enterThaiBinhRoom() {
     if (APP_STATE.currentView === 'transition') return;
     APP_STATE.currentView = 'transition';
+
+    clearHotspots();
+    SoundSystem.playBell(480, 2.6);
 
     if (!thaiBinhRoomGroup) {
       buildThaiBinhRoom();
@@ -1978,8 +2293,17 @@
     APP_STATE.currentView = 'transition';
 
     closeDrawer();
+    clearHotspots();
+    SoundSystem.playClick();
+
+    if (dom.btnRotate) dom.btnRotate.classList.add('hidden');
     dom.bottomDock.classList.add('hidden');
     dom.bottomDock.style.display = 'none';
+
+    // Tắt shadow của các spotlight riêng lẻ để tiết kiệm GPU
+    Object.keys(pedestalSpotlights).forEach(id => {
+      pedestalSpotlights[id].castShadow = false;
+    });
 
     if (lobbyGroup && !scene.children.includes(lobbyGroup)) {
       scene.add(lobbyGroup);
@@ -2014,6 +2338,16 @@
       });
     } else if (APP_STATE.currentRoomId === 'thaibinh') {
       closeDrawer();
+      clearHotspots();
+      SoundSystem.playClick();
+
+      if (dom.btnRotate) dom.btnRotate.classList.add('hidden');
+
+      // Tắt shadow của các spotlight riêng lẻ để giữ vững 60 FPS
+      Object.keys(pedestalSpotlights).forEach(id => {
+        pedestalSpotlights[id].castShadow = false;
+      });
+
       APP_STATE.selectedArtifactId = null;
       APP_STATE.currentView = 'thaibinh_room';
       cameraControl.isOrbiting = false;
@@ -2044,6 +2378,23 @@
 
     APP_STATE.selectedArtifactId = artifactId;
     APP_STATE.currentView = 'artifact_focus';
+    cameraControl.lastInteraction = Date.now();
+
+    // Bật shadow độ nét cao cho duy nhất spotlight của hiện vật đang xem (Tối ưu GPU)
+    Object.keys(pedestalSpotlights).forEach(id => {
+      pedestalSpotlights[id].castShadow = (id === artifactId);
+    });
+
+    // Tạo các điểm ghim chú giải văn hóa (Cultural Hotspots)
+    spawnHotspotsForArtifact(artifact);
+
+    // Hiển thị nút xoay 360°
+    if (dom.btnRotate) {
+      dom.btnRotate.classList.remove('hidden');
+      dom.btnRotate.classList.toggle('active', cameraControl.autoRotate);
+    }
+
+    SoundSystem.playBell(560, 2.0);
 
     const { x, z } = artifact.toaDoKhongGian;
     const plinthCenter = new THREE.Vector3(x, 1.40, z);
@@ -2068,7 +2419,7 @@
       onComplete: () => {
         openDrawer(artifact);
         updateUI();
-        showHintTemporarily('CẬN CẢNH', 'Kéo chuột để xoay · Lăn chuột (chụm 2 ngón) để phóng to xem chi tiết', 3600);
+        showHintTemporarily('CẬN CẢNH', 'Kéo chuột xoay · Lăn chuột phóng to · Click ✦ để xem chú giải chi tiết', 3800);
       }
     });
   }
@@ -2128,6 +2479,36 @@
       if (e.target === dom.modalHelp) dom.modalHelp.classList.remove('open');
     });
 
+    // Nút Bật/Tắt Âm thanh
+    if (dom.btnSound) {
+      dom.btnSound.addEventListener('click', () => {
+        const isEnabled = SoundSystem.toggle();
+        if (dom.soundIcon) dom.soundIcon.innerText = isEnabled ? '🔊' : '🔇';
+        dom.btnSound.classList.toggle('active', isEnabled);
+        if (isEnabled) SoundSystem.playClick();
+      });
+    }
+
+    // Nút Bật/Tắt Tự động xoay 360° (Showroom mode)
+    if (dom.btnRotate) {
+      dom.btnRotate.addEventListener('click', () => {
+        cameraControl.autoRotate = !cameraControl.autoRotate;
+        dom.btnRotate.classList.toggle('active', cameraControl.autoRotate);
+        if (dom.rotateText) {
+          dom.rotateText.innerText = cameraControl.autoRotate ? 'Đang xoay' : 'Xoay 360°';
+        }
+        SoundSystem.playClick();
+      });
+    }
+
+    // Nút đóng Chú giải Hotspot
+    if (dom.btnCloseHotspot) {
+      dom.btnCloseHotspot.addEventListener('click', (e) => {
+        e.stopPropagation();
+        hideHotspotPopup();
+      });
+    }
+
     // Nút đóng Hint
     if (dom.btnCloseHint) {
       dom.btnCloseHint.addEventListener('click', (e) => {
@@ -2157,6 +2538,7 @@
   function onWheelZoom(e) {
     if (!cameraControl.isOrbiting || cameraTween.active) return;
     e.preventDefault();
+    cameraControl.lastInteraction = Date.now();
     const zoomSensitivity = 0.0016;
     cameraControl.orbitRadius = Math.max(
       cameraControl.minOrbitRadius,
@@ -2185,6 +2567,7 @@
     pointerStartX = e.clientX;
     pointerStartY = e.clientY;
     isPointerMoved = false;
+    cameraControl.lastInteraction = Date.now();
 
     scheduleHintFade(1500);
   }
@@ -2194,6 +2577,7 @@
     mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
 
     if (cameraControl.isDragging && !cameraTween.active) {
+      cameraControl.lastInteraction = Date.now();
       const moveDist = Math.hypot(e.clientX - pointerStartX, e.clientY - pointerStartY);
       if (moveDist > 5) {
         isPointerMoved = true;
@@ -2237,15 +2621,18 @@
       pointerStartX = e.touches[0].clientX;
       pointerStartY = e.touches[0].clientY;
       isPointerMoved = false;
+      cameraControl.lastInteraction = Date.now();
       scheduleHintFade(1500);
     } else if (e.touches.length === 2) {
       cameraControl.isDragging = false;
       cameraControl.prevPinchDist = getPinchDistance(e.touches);
+      cameraControl.lastInteraction = Date.now();
     }
   }
 
   function onTouchMove(e) {
     if (e.touches.length === 1 && cameraControl.isDragging) {
+      cameraControl.lastInteraction = Date.now();
       const moveDist = Math.hypot(e.touches[0].clientX - pointerStartX, e.touches[0].clientY - pointerStartY);
       if (moveDist > 5) {
         isPointerMoved = true;
@@ -2256,6 +2643,7 @@
       });
     } else if (e.touches.length === 2 && cameraControl.isOrbiting && !cameraTween.active) {
       e.preventDefault();
+      cameraControl.lastInteraction = Date.now();
       const dist = getPinchDistance(e.touches);
       if (cameraControl.prevPinchDist != null) {
         const delta = dist - cameraControl.prevPinchDist;
@@ -2280,8 +2668,25 @@
     // Bỏ qua click nếu người dùng vừa kéo chuột/cảm ứng để xoay góc nhìn
     if (isPointerMoved) return;
 
-    // Nếu đang trong chế độ cận cảnh hiện vật, không cho raycast nhảy lung tung sang hiện vật khác trong phòng
-    if (APP_STATE.currentView === 'artifact_focus') return;
+    // Nếu đang trong chế độ cận cảnh hiện vật, kiểm tra xem người dùng có click vào Hotspot không
+    if (APP_STATE.currentView === 'artifact_focus') {
+      if (activeHotspotSprites.length > 0) {
+        mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+        raycaster.setFromCamera(mouse, camera);
+        const hotspotHits = raycaster.intersectObjects(activeHotspotSprites, false);
+        if (hotspotHits.length > 0) {
+          const hit = hotspotHits[0].object;
+          if (hit.userData && hit.userData.data) {
+            showHotspotPopup(hit.userData.data);
+          }
+          return;
+        }
+      }
+      // Click ra ngoài khoảng trống trong lúc focus thì đóng popup hotspot
+      hideHotspotPopup();
+      return;
+    }
 
     mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
     mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
@@ -2504,7 +2909,25 @@
       }
     }
 
-    // 2. Tự động tính khoảng cách và làm mờ Biển tên 3D Billboard (Sửa lỗi 3)
+    // 2. Tự động xoay 360° Showroom Mode khi đang xem cận cảnh và không tương tác
+    if (APP_STATE.currentView === 'artifact_focus' && cameraControl.isOrbiting && cameraControl.autoRotate && !cameraControl.isDragging && !cameraTween.active) {
+      if (Date.now() - cameraControl.lastInteraction > 1200) {
+        cameraControl.yaw += 0.003;
+        applyOrbitCamera();
+      }
+    }
+
+    // 3. Hiệu ứng nhịp đập (Pulsing) cho các điểm ghim chú giải di sản (Cultural Hotspots)
+    if (activeHotspotSprites.length > 0) {
+      const pulse = 1 + Math.sin(time * 0.005) * 0.15;
+      for (let i = 0; i < activeHotspotSprites.length; i++) {
+        const s = activeHotspotSprites[i];
+        const base = (s.userData && s.userData.baseScale) || 0.16;
+        s.scale.set(base * pulse, base * pulse, 1);
+      }
+    }
+
+    // 4. Tự động tính khoảng cách và làm mờ Biển tên 3D Billboard
     if (APP_STATE.currentRoomId === 'thaibinh' && nameplateSprites.length > 0) {
       const camPos = camera.position;
 
@@ -2526,7 +2949,7 @@
       }
     }
 
-    // 3. Render khung hình
+    // 5. Render khung hình
     renderer.render(scene, camera);
   }
 

@@ -178,8 +178,95 @@ html, body {
   box-shadow: 0 0 16px rgba(212, 175, 95, 0.35);
 }
 
+.btn-ui.active {
+  background: linear-gradient(135deg, #7c5827, #533918);
+  border-color: var(--border-gold-bright);
+  color: var(--accent-gold);
+  box-shadow: 0 0 12px rgba(212, 175, 95, 0.35);
+}
+
 .btn-ui.hidden {
   display: none !important;
+}
+
+/* ==========================================================================
+   POPUP CHÚ GIẢI ĐIỂM NHẤN DI SẢN (CULTURAL HOTSPOT POPUP)
+   ========================================================================== */
+
+.hotspot-popup {
+  position: absolute;
+  top: 5.5rem;
+  left: 1.5rem;
+  width: 320px;
+  max-width: calc(100vw - 3rem);
+  background: rgba(24, 18, 15, 0.94);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-gold-bright);
+  border-radius: 12px;
+  padding: 1rem 1.15rem;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.7);
+  z-index: 25;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-10px) scale(0.95);
+  transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.hotspot-popup.show {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
+}
+
+.hotspot-popup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.hotspot-tag {
+  font-size: 0.7rem;
+  color: var(--accent-amber);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.hotspot-close {
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: var(--text-muted);
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.hotspot-close:hover {
+  background: rgba(212, 175, 95, 0.3);
+  color: #fff;
+}
+
+.hotspot-title {
+  font-family: var(--font-serif);
+  font-size: 1.05rem;
+  color: #fff;
+  font-weight: 700;
+}
+
+.hotspot-desc {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.5;
 }
 
 /* ==========================================================================
