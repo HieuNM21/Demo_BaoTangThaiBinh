@@ -44,17 +44,32 @@
           <span>🏛️</span>
           <span>Về Sảnh</span>
         </button>
-        <button id="btn-rotate" class="btn-ui hidden" title="Bật/Tắt tự động xoay 360°">
+        <button id="btn-tour" class="btn-ui" title="Bắt đầu chuyến tham quan tự động" aria-label="Tham quan tự động">
+          <span id="tour-icon">🎬</span>
+          <span id="tour-text">Tham quan</span>
+        </button>
+        <button id="btn-snapshot" class="btn-ui hidden" title="Chụp ảnh lưu niệm hiện vật 3D" aria-label="Chụp ảnh lưu niệm hiện vật 3D">
+          <span>📸</span>
+          <span>Chụp ảnh</span>
+        </button>
+        <button id="btn-rotate" class="btn-ui hidden" title="Bật/Tắt tự động xoay 360°" aria-pressed="false" aria-label="Tự động xoay 360 độ">
           <span id="rotate-icon">🔄</span>
           <span id="rotate-text">Xoay 360°</span>
         </button>
-        <button id="btn-sound" class="btn-ui" title="Bật/Tắt âm thanh hiệu ứng">
+        <button id="btn-sound" class="btn-ui active" title="Bật/Tắt âm thanh hiệu ứng" aria-pressed="true" aria-label="Bật tắt âm thanh hiệu ứng">
           <span id="sound-icon">🔊</span>
           <span class="sound-text">Âm thanh</span>
         </button>
         <button id="btn-overview" class="btn-ui" title="Xem toàn cảnh gian phòng">
           <span>👁️</span>
           <span>Toàn cảnh</span>
+        </button>
+        <button id="btn-qr" class="btn-ui" title="Mở mã QR quét trên điện thoại" aria-label="Mở mã QR di động">
+          <span>📱</span>
+          <span>Di động</span>
+        </button>
+        <button id="btn-stats" class="btn-ui" title="Bật/Tắt bảng hiệu năng 60 FPS" aria-pressed="false" aria-label="Bật tắt bảng thông số">
+          <span id="stats-fps-val">⚡ 60 FPS</span>
         </button>
         <button id="btn-help" class="btn-ui" title="Hướng dẫn & Thông tin dự án">
           <span>ℹ️</span>
@@ -78,6 +93,32 @@
       </div>
       <h4 class="hotspot-title" id="hotspot-title">Tên điểm nhấn</h4>
       <p class="hotspot-desc" id="hotspot-desc">Mô tả giá trị lịch sử và nghệ thuật thủ công...</p>
+    </div>
+
+    <!-- 2.2 Thanh Thuyết Minh Tham Quan Tự Động (Guided Tour Docent HUD) -->
+    <div class="tour-hud hidden" id="tour-hud" role="region" aria-label="Thuyết minh tham quan tự động">
+      <div class="tour-hud-header">
+        <div class="tour-tag">
+          <span class="tour-pulse-dot"></span>
+          <span id="tour-step-tag">🎬 THUYẾT MINH TỰ ĐỘNG (1/6)</span>
+        </div>
+        <button class="btn-ui btn-tour-stop" id="btn-stop-tour" title="Dừng tham quan tự động">
+          <span>⏹️ Dừng tour</span>
+        </button>
+      </div>
+      <h3 class="tour-title" id="tour-title">Chào mừng đến với Bảo tàng số Di sản</h3>
+      <p class="tour-desc" id="tour-desc">Hệ thống đang dẫn dắt quý khách khám phá các giá trị văn hóa tiêu biểu...</p>
+      <div class="tour-progress-bar">
+        <div class="tour-progress-fill" id="tour-progress-fill"></div>
+      </div>
+    </div>
+
+    <!-- 2.3 Bảng Thống Kê Hiệu Năng Thời Gian Thực (Performance HUD) -->
+    <div class="fps-hud hidden" id="fps-hud" aria-hidden="true">
+      <div class="fps-hud-row"><span class="fps-lbl">Tốc độ khung hình:</span> <span class="fps-val" id="hud-fps">60 FPS</span></div>
+      <div class="fps-hud-row"><span class="fps-lbl">Đa giác (Vertices):</span> <span class="fps-val" id="hud-verts">~24,500</span></div>
+      <div class="fps-hud-row"><span class="fps-lbl">Lệnh vẽ (Draw calls):</span> <span class="fps-val" id="hud-draws">32 calls</span></div>
+      <div class="fps-hud-row"><span class="fps-lbl">Ánh sáng & Bóng:</span> <span class="fps-val" style="color:var(--accent-amber);">Dynamic PBR</span></div>
     </div>
 
     <!-- 3. Thanh Chọn Hiện Vật & Danh Mục Dưới Đáy (Bottom Dock) -->
@@ -177,7 +218,29 @@
     </div>
   </div>
 
-  <!-- 6. Toast Thông Báo Gian Hưng Yên Đang Khóa -->
+  <!-- 6. Modal Quét Mã QR Di Động Cho Ban Giám Khảo (Smart Mobile QR) -->
+  <div class="modal-backdrop" id="modal-qr" role="dialog" aria-modal="true">
+    <div class="modal-dialog" style="max-width: 420px; text-align: center;">
+      <div class="modal-header">
+        <h2>📱 TRẢI NGHIỆM TRÊN DI ĐỘNG</h2>
+        <button class="btn-close" id="btn-close-qr" aria-label="Đóng hộp thoại">✕</button>
+      </div>
+      <div class="modal-body" style="display: flex; flex-direction: column; align-items: center; gap: 1rem;">
+        <p style="font-size: 0.9rem; color: var(--text-muted);">Quét mã QR bằng camera điện thoại để trực tiếp điều khiển bảo tàng số 3D bằng cử chỉ cảm ứng đa điểm:</p>
+        
+        <div class="qr-canvas-wrapper" style="background: #fff; padding: 12px; border-radius: 12px; box-shadow: 0 0 20px rgba(212,175,95,0.3);">
+          <canvas id="qr-code-canvas" width="200" height="200"></canvas>
+        </div>
+
+        <div class="qr-url-box" style="display: flex; gap: 0.5rem; width: 100%;">
+          <input type="text" id="qr-url-input" readonly style="flex:1; background: rgba(0,0,0,0.5); border: 1px solid var(--border-gold); color: #fff; border-radius: 6px; padding: 0.45rem 0.65rem; font-size: 0.8rem;">
+          <button class="btn-ui btn-gold" id="btn-copy-url"><span>📋 Sao chép</span></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7. Toast Thông Báo Gian Hưng Yên Đang Khóa -->
   <div class="toast-locked" id="toast-locked" role="alert">
     <span>🔒</span>
     <span>Gian Hưng Yên đang trong giai đoạn phục dựng 3D — sẽ sớm mở cửa!</span>
